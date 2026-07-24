@@ -1,0 +1,107 @@
+<div class="grid gap-4" style="grid-template-columns: 340px 1fr; height: calc(100vh - 140px)">
+  <!-- List -->
+  <div class="bg-[#0C1220] border border-white/[0.07] rounded overflow-auto">
+    <div class="px-5 py-3.5 border-b border-white/[0.07] font-mono text-[11px] tracking-[0.12em] uppercase text-[#5A7A9A]">
+      Alert Queue ({{ alerts.length }})
+    </div>
+    <div
+      *ngFor="let a of alerts"
+      (click)="select(a.id)"
+      [class]="selectedId === a.id
+        ? 'px-5 py-4 border-b border-white/[0.05] cursor-pointer border-l-2 transition-colors bg-[#00FF88]/[0.05] border-l-[#00FF88]'
+        : 'px-5 py-4 border-b border-white/[0.05] cursor-pointer border-l-2 transition-colors border-l-transparent'"
+    >
+      <div class="flex justify-between mb-2">
+        <gd-severity-badge [severity]="a.severity"></gd-severity-badge>
+        <span class="font-mono text-[10px] text-[#5A7A9A]">{{ a.time }}</span>
+      </div>
+      <div class="font-sans text-[13px] font-medium text-[#E2EBF5] mb-1">{{ a.title }}</div>
+      <div class="font-mono text-[10px] text-[#5A7A9A]">{{ a.id }} &middot; {{ a.file }}</div>
+    </div>
+  </div>
+
+  <!-- Detail -->
+  <div *ngIf="selected as sel" class="bg-[#0C1220] border border-white/[0.07] rounded p-7 overflow-auto">
+    <div class="flex justify-between items-start mb-6">
+      <div>
+        <div class="flex gap-2.5 items-center mb-2.5">
+          <gd-severity-badge [severity]="sel.severity"></gd-severity-badge>
+          <gd-alert-status-badge [status]="sel.status"></gd-alert-status-badge>
+        </div>
+        <h2 class="font-sans text-xl font-semibold text-[#E2EBF5] m-0">{{ sel.title }}</h2>
+      </div>
+      <div class="flex gap-2">
+        <button class="font-mono text-[10px] text-[#FFB800] bg-[#FFB800]/[0.08] border border-[#FFB800]/30 px-3.5 py-1.5 rounded-sm cursor-pointer">
+          FALSE POSITIVE
+        </button>
+        <button class="font-mono text-[10px] text-[#00FF88] bg-[#00FF88]/[0.08] border border-[#00FF88]/30 px-3.5 py-1.5 rounded-sm cursor-pointer">
+          RESOLVE
+        </button>
+      </div>
+    </div>
+
+    <!-- Meta -->
+    <div class="grid grid-cols-3 gap-px bg-white/[0.04] mb-6 rounded overflow-hidden">
+      <div class="p-3.5 bg-[#0A1018]">
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Alert ID</div>
+        <div class="font-mono text-xs text-[#E2EBF5]">{{ sel.id }}</div>
+      </div>
+      <div class="p-3.5 bg-[#0A1018]">
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">File</div>
+        <div class="font-mono text-xs text-[#E2EBF5]">{{ sel.file }}</div>
+      </div>
+      <div class="p-3.5 bg-[#0A1018]">
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Analyst</div>
+        <div class="font-mono text-xs text-[#E2EBF5]">{{ sel.analyst }}</div>
+      </div>
+      <div class="p-3.5 bg-[#0A1018]">
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Detected</div>
+        <div class="font-mono text-xs text-[#E2EBF5]">Today {{ sel.time }}</div>
+      </div>
+      <div class="p-3.5 bg-[#0A1018]">
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Status</div>
+        <div class="font-mono text-xs text-[#E2EBF5]">{{ sel.status }}</div>
+      </div>
+      <div class="p-3.5 bg-[#0A1018]">
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Source</div>
+        <div class="font-mono text-xs text-[#E2EBF5]">AI Engine v2.1.4</div>
+      </div>
+    </div>
+
+    <!-- SHAP -->
+    <div class="mb-6">
+      <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A] mb-3.5">
+        Feature Importance (SHAP)
+      </div>
+      <div *ngFor="let f of shapFeatures" class="mb-2.5">
+        <div class="flex justify-between mb-1">
+          <span class="font-sans text-xs text-[#8BA4C0]">{{ f.feature }}</span>
+          <span
+            class="font-mono text-[11px]"
+            [style.color]="f.direction === 'malicious' ? '#FF4444' : '#00FF88'"
+          >
+            {{ f.direction === 'malicious' ? '+' : '-' }}{{ (f.score * 100).toFixed(0) }}%
+          </span>
+        </div>
+        <div class="h-[3px] bg-white/[0.06] rounded overflow-hidden">
+          <div
+            class="h-full rounded"
+            [style.width.%]="f.score * 100"
+            [style.background]="f.direction === 'malicious' ? '#FF4444' : '#00FF88'"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Remediation -->
+    <div class="bg-[#FF4444]/[0.06] border border-[#FF4444]/20 rounded px-5 py-4">
+      <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#FF4444] mb-2.5">
+        Remediation Recommendations
+      </div>
+      <div *ngFor="let r of remediation; let i = index" class="flex gap-2.5 mb-1.5 items-start">
+        <span class="font-mono text-[10px] text-[#FF4444] min-w-[20px]">{{ (i + 1).toString().padStart(2, '0') }}</span>
+        <span class="font-sans text-xs text-[#8BA4C0] leading-relaxed">{{ r }}</span>
+      </div>
+    </div>
+  </div>
+</div>

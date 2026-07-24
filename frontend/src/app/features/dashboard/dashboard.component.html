@@ -1,0 +1,60 @@
+<div class="flex flex-col gap-6">
+  <div>
+    <h2 class="font-mono text-lg font-semibold text-[#E2EBF5] m-0 mb-1">Security Dashboard</h2>
+    <p class="font-sans text-[13px] text-[#5A7A9A] m-0">Real-time overview of threat detection activity</p>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-4 gap-4">
+    <gd-stat-card label="Malicious (7d)" [value]="totalMalicious" color="#FF4444"></gd-stat-card>
+    <gd-stat-card label="Suspicious (7d)" [value]="totalSuspicious" color="#FFB800"></gd-stat-card>
+    <gd-stat-card label="Clean (7d)" [value]="totalClean" color="#00FF88"></gd-stat-card>
+    <gd-stat-card label="Total Scans (7d)" [value]="recentScans.length"></gd-stat-card>
+  </div>
+
+  <!-- File type breakdown -->
+  <div class="bg-[#0C1220] border border-white/[0.07] rounded p-5">
+    <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A] mb-4">File Type Breakdown</div>
+    <div class="flex flex-col gap-2.5">
+      <div *ngFor="let t of fileTypes" class="flex items-center gap-3">
+        <span class="font-mono text-[11px] text-[#8BA4C0] w-12">{{ t.type }}</span>
+        <div class="flex-1 h-2 bg-white/[0.06] rounded overflow-hidden">
+          <div
+            class="h-full bg-[#00D4FF] rounded"
+            [style.width.%]="(t.count / maxTypeCount()) * 100"
+          ></div>
+        </div>
+        <span class="font-mono text-[11px] text-[#5A7A9A] w-10 text-right">{{ t.count }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent scans table -->
+  <div class="bg-[#0C1220] border border-white/[0.07] rounded overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-white/[0.07] font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A]">
+      Recent Scans
+    </div>
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="font-mono text-[10px] tracking-[0.08em] uppercase text-[#5A7A9A]">
+          <th class="px-5 py-2 font-normal">ID</th>
+          <th class="px-5 py-2 font-normal">Filename</th>
+          <th class="px-5 py-2 font-normal">Status</th>
+          <th class="px-5 py-2 font-normal">Confidence</th>
+          <th class="px-5 py-2 font-normal">Analyst</th>
+          <th class="px-5 py-2 font-normal">Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let s of recentScans" class="border-t border-white/[0.04]">
+          <td class="px-5 py-3 font-mono text-[11px] text-[#5A7A9A]">{{ s.id }}</td>
+          <td class="px-5 py-3 font-sans text-[13px] text-[#E2EBF5]">{{ s.filename }}</td>
+          <td class="px-5 py-3"><gd-status-badge [status]="s.status"></gd-status-badge></td>
+          <td class="px-5 py-3 font-mono text-[12px] text-[#8BA4C0]">{{ s.confidence }}%</td>
+          <td class="px-5 py-3 font-mono text-[11px] text-[#5A7A9A]">{{ s.analyst }}</td>
+          <td class="px-5 py-3 font-mono text-[11px] text-[#5A7A9A]">{{ s.timestamp }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
