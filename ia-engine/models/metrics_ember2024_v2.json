@@ -1,0 +1,9 @@
+{
+  "seuil": 0.6637610694146596,
+  "roc_auc": 0.9975019295061728,
+  "faux_positifs": 0.02,
+  "detection": 0.9727111111111111,
+  "detection_challenge": 0.7572446555819478,
+  "dataset": "EMBER2024 (.NET + Win64)",
+  "n_train": 150000
+}
