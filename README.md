@@ -70,16 +70,22 @@ Voici la réponse renvoyée par une analyse :
 
 ### Le backend
 
-Une base PostgreSQL est nécessaire avant de lancer le backend :
+Une base PostgreSQL est nécessaire avant de lancer le backend. Elle s'appuie sur une installation PostgreSQL locale écoutant sur le port 5432. Créer une fois pour toutes la base et son utilisateur, depuis psql en tant que superutilisateur `postgres` :
+
+```sql
+CREATE USER guardianai_user WITH PASSWORD 'motdepasse_fort';
+CREATE DATABASE guardianai OWNER guardianai_user;
+GRANT ALL PRIVILEGES ON DATABASE guardianai TO guardianai_user;
+```
+
+Le schéma est ensuite créé et versionné par Flyway au démarrage du backend :
 
 ```bash
-docker run -d --name postgres-guardianai -e POSTGRES_DB=guardianai \
-  -e POSTGRES_USER=guardianai_user -e POSTGRES_PASSWORD=motdepasse_fort \
-  -p 5432:5432 postgres:15
-
 cd backend
 mvn spring-boot:run
 ```
+
+Les paramètres de connexion sont surchargeables sans modifier le code, via les variables d'environnement `DB_URL`, `DB_USER` et `DB_PASSWORD` — ce qui permet de pointer vers une base distante en recette ou en production.
 
 ### Le frontend
 

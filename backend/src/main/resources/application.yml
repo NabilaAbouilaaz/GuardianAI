@@ -3,15 +3,21 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/guardian_ai_db
-    username: postgres
-    password: "0000"  
+    # Instance PostgreSQL locale (port 5432). Le conteneur Docker a ete abandonne :
+    # il faisait doublon avec l'installation native et consommait plusieurs dizaines
+    # de Go pour aucun apport fonctionnel.
+    # Surchargeable par variables d'environnement sans toucher au code, ce qui permet
+    # de pointer vers une base distante en recette ou en production.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/guardianai}
+    username: ${DB_USER:guardianai_user}
+    password: ${DB_PASSWORD:motdepasse_fort}
     driver-class-name: org.postgresql.Driver
-  
+
   jpa:
     hibernate:
-      ddl-auto: validate        
-    show-sql: true
+      # Le schema est cree et versionne par Flyway, pas par Hibernate.
+      ddl-auto: none
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -19,3 +25,21 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+
+  servlet:
+    multipart:
+      # Limite alignee sur l'exigence UC-01 du cahier des charges.
+      max-file-size: 200MB
+      max-request-size: 210MB
+
+guardianai:
+  ia-engine:
+    # Microservice d'analyse. 127.0.0.1 et non localhost : sous Windows,
+    # localhost est resolu d'abord en IPv6 alors qu'uvicorn ecoute en IPv4,
+    # ce qui ajoute environ 2 secondes de latence par appel.
+    base-url: ${IA_ENGINE_URL:http://127.0.0.1:8000}
+    # Delai maximal avant bascule en mode degrade (exigence RNF-01 : < 3 s).
+    timeout-seconds: 10
+
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:4200}
