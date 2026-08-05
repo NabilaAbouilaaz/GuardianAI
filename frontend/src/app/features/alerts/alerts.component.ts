@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { GuardianDataService } from '../../core/services/guardian-data.service';
 import { AlertRecord, ShapFeature } from '../../core/models/guardian.models';
 import { SeverityBadgeComponent } from '../../shared/components/severity-badge/severity-badge.component';
@@ -33,12 +34,27 @@ export class AlertsComponent implements OnInit {
     'Report incident to SOC lead within 1 hour (SLA: critical).',
   ];
 
-  constructor(private readonly data: GuardianDataService) {}
+  error: string | null = null;
+
+  constructor(
+    private readonly data: GuardianDataService,
+    private readonly cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
-    this.data.getAlerts().subscribe((v) => {
-      this.alerts = v;
-      this.selectedId = v[0]?.id ?? null;
+    this.data.getAlerts().subscribe({
+      next: (v) => {
+        this.alerts = v;
+        this.selectedId = v[0]?.id ?? null;
+        this.error = null;
+        this.cdr.detectChanges();
+      },
+      error: (e: HttpErrorResponse) => {
+        this.error = e.status === 0
+          ? "Backend injoignable. Verifier qu'il est demarre sur le port 8080."
+          : `Le serveur a repondu une erreur (HTTP ${e.status}).`;
+        this.cdr.detectChanges();
+      },
     });
   }
 

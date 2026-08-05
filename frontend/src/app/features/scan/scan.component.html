@@ -2,8 +2,8 @@
   <div>
     <h2 class="font-mono text-lg font-semibold text-[#E2EBF5] m-0 mb-1.5">File Analysis</h2>
     <p class="font-sans text-[13px] text-[#5A7A9A] m-0">
-      Upload files for AI-powered behavioral and static analysis.
-      Supported: .exe .dll .pdf .docx .zip .sh .ps1 (&le; 200 MB)
+      Analyse statique par apprentissage automatique. Le fichier n'est jamais exécuté.
+      Taille maximale&nbsp;: 200&nbsp;MB
     </p>
   </div>
 
@@ -35,13 +35,27 @@
     <div *ngFor="let item of queue" class="px-5 py-3.5 flex items-center justify-between border-b border-white/[0.04]">
       <div>
         <div class="font-sans text-[13px] text-[#E2EBF5] mb-0.5">{{ item.file.name }}</div>
-        <div class="font-mono text-[10px] text-[#5A7A9A]">{{ sizeMb(item.file) }} MB</div>
+        <div class="font-mono text-[10px] text-[#5A7A9A]">
+          {{ sizeMb(item.file) }} MB
+          <span *ngIf="item.record"> &middot; {{ item.record.hash }} &middot; {{ item.record.timestamp }}</span>
+        </div>
+        <div *ngIf="item.error" class="font-mono text-[10px] text-[#FF4444] mt-1">{{ item.error }}</div>
       </div>
       <div class="flex items-center gap-3">
+        <span *ngIf="item.record" class="font-mono text-[11px] text-[#5A7A9A]">
+          {{ item.record.confidence }}%
+        </span>
         <gd-status-badge *ngIf="item.result" [status]="item.result"></gd-status-badge>
-        <span *ngIf="item.scanning" class="font-mono text-[11px] text-[#00D4FF]">ANALYZING&hellip;</span>
+        <span *ngIf="item.scanning" class="font-mono text-[11px] text-[#00D4FF]">ANALYSE EN COURS&hellip;</span>
         <button
-          *ngIf="!item.result && !item.scanning"
+          *ngIf="item.error && !item.scanning"
+          (click)="scanFile(item)"
+          class="font-mono text-[10px] tracking-[0.08em] text-[#FFB800] bg-[#FFB800]/[0.08] border border-[#FFB800]/30 px-3.5 py-1.5 rounded-sm cursor-pointer"
+        >
+          RÉESSAYER
+        </button>
+        <button
+          *ngIf="!item.result && !item.scanning && !item.error"
           (click)="scanFile(item)"
           class="font-mono text-[10px] tracking-[0.08em] text-[#00FF88] bg-[#00FF88]/[0.08] border border-[#00FF88]/30 px-3.5 py-1.5 rounded-sm cursor-pointer"
         >

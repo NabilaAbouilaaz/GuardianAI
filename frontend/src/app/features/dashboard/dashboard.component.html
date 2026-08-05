@@ -4,12 +4,20 @@
     <p class="font-sans text-[13px] text-[#5A7A9A] m-0">Real-time overview of threat detection activity</p>
   </div>
 
+  <!-- Bandeau d'erreur : sans lui, une panne du backend ressemble a une base vide -->
+  <div
+    *ngIf="error"
+    class="bg-[#FF4444]/[0.08] border border-[#FF4444]/30 rounded px-5 py-3.5 font-mono text-[12px] text-[#FF4444]"
+  >
+    {{ error }}
+  </div>
+
   <!-- Stat cards -->
   <div class="grid grid-cols-4 gap-4">
     <gd-stat-card label="Malicious (7d)" [value]="totalMalicious" color="#FF4444"></gd-stat-card>
     <gd-stat-card label="Suspicious (7d)" [value]="totalSuspicious" color="#FFB800"></gd-stat-card>
     <gd-stat-card label="Clean (7d)" [value]="totalClean" color="#00FF88"></gd-stat-card>
-    <gd-stat-card label="Total Scans (7d)" [value]="recentScans.length"></gd-stat-card>
+    <gd-stat-card label="Total Scans (7d)" [value]="totalScans"></gd-stat-card>
   </div>
 
   <!-- File type breakdown -->

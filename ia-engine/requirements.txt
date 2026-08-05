@@ -1,0 +1,33 @@
+# GuardianAI — Moteur d'analyse
+#
+# Installation :
+#   python -m venv venv
+#   venv\Scripts\activate          (Linux / macOS : source venv/bin/activate)
+#   pip install -r requirements.txt
+#
+# Les versions sont bornees a la version majeure : les correctifs restent acceptes,
+# les changements de rupture sont exclus. Le modele en service a ete entraine et
+# evalue avec ces versions ; les modifier peut faire varier les scores mesures.
+
+# --- Service HTTP
+fastapi~=0.115.0
+uvicorn[standard]~=0.32.0
+python-multipart~=0.0.12        # requis par FastAPI pour recevoir des fichiers
+
+# --- Modele et calcul
+lightgbm~=4.5.0
+numpy~=1.26.0
+joblib~=1.4.0
+
+# --- Extraction de caracteristiques
+# thrember fournit PEFeatureExtractor (jeu de caracteristiques EMBER2024, version 3).
+# Ce paquet n'est pas publie sur PyPI et s'installe depuis son depot d'origine.
+# Ne pas confondre avec l'ancien paquet `ember` d'Elastic, qui n'est plus utilise ici.
+git+https://github.com/FutureComputing4AI/EMBER2024.git
+
+# Version figee et non bornee : les versions ulterieures de signify ont modifie
+# l'API de verification des signatures Authenticode utilisee par thrember.
+signify==0.7.1
+
+# --- Outillage de test
+requests~=2.32.0                # utilise par test_predict.py

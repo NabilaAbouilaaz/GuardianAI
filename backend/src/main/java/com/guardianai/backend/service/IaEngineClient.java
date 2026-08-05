@@ -8,9 +8,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
-import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,7 +31,14 @@ public class IaEngineClient {
 
     public IaEngineClient(@Value("${guardianai.ia-engine.base-url}") String baseUrl,
                           @Value("${guardianai.ia-engine.timeout-seconds:10}") long timeoutSeconds) {
-        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory();
+        // SimpleClientHttpRequestFactory et non JdkClientHttpRequestFactory : ce dernier
+        // s'appuie sur le HttpClient du JDK, qui annonce une taille fixe puis ecrit le
+        // corps en flux. Sur un envoi multipart vers uvicorn, le serveur repond avant
+        // d'avoir tout lu et ferme la connexion, ce qui provoque un
+        // "Connection reset by peer" cote Java alors que le moteur est parfaitement
+        // fonctionnel — verifie en appelant /predict directement.
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
         factory.setReadTimeout(Duration.ofSeconds(timeoutSeconds));
 
         this.client = RestClient.builder()
@@ -57,8 +65,14 @@ public class IaEngineClient {
 
         String filename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "fichier";
 
-        MultipartBodyBuilder body = new MultipartBodyBuilder();
-        body.part("file", new ByteArrayResource(bytes) {
+        // On construit le corps multipart avec une MultiValueMap plutot qu'avec
+        // MultipartBodyBuilder : cette derniere s'appuie sur reactive-streams, une
+        // dependance qui n'a pas sa place dans une application servlet classique et
+        // dont l'absence provoquait une NoClassDefFoundError a l'execution.
+        // Un nom de fichier est indispensable ici : sans lui, la partie est transmise
+        // comme un simple champ de formulaire et FastAPI la rejette.
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", new ByteArrayResource(bytes) {
             @Override
             public String getFilename() {
                 return filename;
@@ -69,7 +83,7 @@ public class IaEngineClient {
             return client.post()
                     .uri("/predict")
                     .contentType(MediaType.MULTIPART_FORM_DATA)
-                    .body(body.build())
+                    .body(body)
                     .retrieve()
                     .body(IaVerdict.class);
 
@@ -81,10 +95,23 @@ public class IaEngineClient {
                     "Le moteur n'a pas pu analyser ce fichier (code " + status + ").", e);
 
         } catch (Exception e) {
-            // Moteur injoignable, arrete ou delai depasse.
-            log.error("Moteur IA injoignable : {}", e.getMessage());
+            // Moteur injoignable, arrete, delai depasse, ou echec de lecture de la
+            // reponse. Ces situations sont distinctes mais aboutissent toutes ici ;
+            // on journalise donc la trace complete et non le seul message, faute de
+            // quoi la cause reelle est perdue.
+            log.error("Echec de l'appel au moteur IA pour '{}'", filename, e);
+
+            // Le detail technique est repris dans le message pour rester diagnosticable
+            // en developpement. A remplacer par un message generique avant mise en
+            // production, afin de ne pas exposer le fonctionnement interne.
+            Throwable racine = e;
+            while (racine.getCause() != null) {
+                racine = racine.getCause();
+            }
+
             throw new IaEngineUnavailableException(
-                    "Le moteur d'analyse est indisponible. Reessayer plus tard.", e);
+                    "Echec de l'appel au moteur d'analyse : "
+                            + racine.getClass().getSimpleName() + " — " + racine.getMessage(), e);
         }
     }
 
