@@ -32,7 +32,8 @@
     <div class="px-5 py-3.5 border-b border-white/[0.07] font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A]">
       Queue &mdash; {{ queue.length }} file{{ queue.length !== 1 ? 's' : '' }}
     </div>
-    <div *ngFor="let item of queue" class="px-5 py-3.5 flex items-center justify-between border-b border-white/[0.04]">
+    <div *ngFor="let item of queue" class="border-b border-white/[0.04]">
+    <div class="px-5 py-3.5 flex items-center justify-between">
       <div>
         <div class="font-sans text-[13px] text-[#E2EBF5] mb-0.5">{{ item.file.name }}</div>
         <div class="font-mono text-[10px] text-[#5A7A9A]">
@@ -42,6 +43,13 @@
         <div *ngIf="item.error" class="font-mono text-[10px] text-[#FF4444] mt-1">{{ item.error }}</div>
       </div>
       <div class="flex items-center gap-3">
+        <button
+          *ngIf="item.record"
+          (click)="basculerExplication(item)"
+          class="font-mono text-[10px] tracking-[0.08em] text-[#00D4FF] bg-[#00D4FF]/[0.08] border border-[#00D4FF]/30 px-3 py-1.5 rounded-sm cursor-pointer"
+        >
+          {{ item.explicationOuverte ? 'MASQUER' : 'POURQUOI ?' }}
+        </button>
         <span *ngIf="item.record" class="font-mono text-[11px] text-[#5A7A9A]">
           {{ item.record.confidence }}%
         </span>
@@ -63,6 +71,48 @@
         </button>
       </div>
     </div>
+
+    <!-- Justification du verdict -->
+    <div *ngIf="item.explicationOuverte" class="px-5 pb-4 bg-[#0A1018]">
+      <div class="font-mono text-[10px] tracking-[0.1em] uppercase text-[#5A7A9A] pt-4 mb-1">
+        Contribution au verdict (SHAP)
+      </div>
+      <div class="font-sans text-[11px] text-[#5A7A9A] mb-3">
+        Poids de chaque groupe de caractéristiques dans la décision, du plus
+        déterminant au moins. En rouge, ce qui pousse vers malveillant.
+      </div>
+
+      <div *ngIf="!item.contributions" class="font-mono text-[11px] text-[#00D4FF]">
+        CHARGEMENT&hellip;
+      </div>
+      <div
+        *ngIf="item.contributions && !item.contributions.length"
+        class="font-sans text-xs text-[#5A7A9A] italic"
+      >
+        Aucune justification enregistrée pour cette analyse.
+      </div>
+
+      <div *ngFor="let c of item.contributions" class="mb-2">
+        <div class="flex justify-between mb-1">
+          <span class="font-sans text-xs text-[#8BA4C0]">{{ c.groupe }}</span>
+          <span
+            class="font-mono text-[11px]"
+            [style.color]="c.direction === 'malveillant' ? '#FF4444' : '#00FF88'"
+          >
+            {{ c.valeur > 0 ? '+' : '' }}{{ c.valeur.toFixed(2) }}
+          </span>
+        </div>
+        <div class="h-[3px] bg-white/[0.06] rounded overflow-hidden">
+          <div
+            class="h-full rounded"
+            [style.width.%]="largeur(item, c)"
+            [style.background]="c.direction === 'malveillant' ? '#FF4444' : '#00FF88'"
+          ></div>
+        </div>
+      </div>
+    </div>
+    </div>
+
     <div class="p-3.5">
       <button
         (click)="scanAll()"

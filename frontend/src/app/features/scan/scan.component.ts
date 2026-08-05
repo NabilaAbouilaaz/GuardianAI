@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component } from '@angular/core';
 import { GuardianDataService } from '../../core/services/guardian-data.service';
-import { ScanRecord, ScanStatus } from '../../core/models/guardian.models';
+import { Contribution, ScanRecord, ScanStatus } from '../../core/models/guardian.models';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 
@@ -14,6 +14,9 @@ interface QueuedFile {
   record?: ScanRecord;
   /** Message d'erreur lisible lorsque l'analyse n'a pas abouti. */
   error?: string;
+  /** Justification du verdict, chargee a la demande. */
+  contributions?: Contribution[];
+  explicationOuverte?: boolean;
 }
 
 @Component({
@@ -103,6 +106,47 @@ export class ScanComponent {
 
   sizeMb(file: File): string {
     return (file.size / 1024 / 1024).toFixed(2);
+  }
+
+  /**
+   * Affiche ou masque la justification du verdict.
+   *
+   * Les contributions ne sont demandees qu'au premier deploiement puis conservees :
+   * elles sont figees en base au moment de l'analyse et ne changeront pas.
+   */
+  basculerExplication(item: QueuedFile): void {
+    if (!item.record) {
+      return;
+    }
+
+    item.explicationOuverte = !item.explicationOuverte;
+
+    if (item.contributions || !item.explicationOuverte) {
+      return;
+    }
+
+    this.data.getContributions(item.record.scanId).subscribe({
+      next: (c) => {
+        item.contributions = c;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        item.contributions = [];
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  /**
+   * Largeur de barre normalisee sur la contribution la plus forte.
+   *
+   * Les valeurs sont en log-odds, non bornees a 1 : les traiter comme des
+   * pourcentages produirait des barres incoherentes.
+   */
+  largeur(item: QueuedFile, c: Contribution): number {
+    const valeurs = item.contributions ?? [];
+    const max = Math.max(...valeurs.map((x) => Math.abs(x.valeur)), 0.0001);
+    return (Math.abs(c.valeur) / max) * 100;
   }
 
   /**

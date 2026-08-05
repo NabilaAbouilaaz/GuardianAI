@@ -6,6 +6,8 @@ package com.guardianai.backend.dto;
  */
 public record ScanRecordDto(
         String id,
+        /** Identifiant reel de l'analyse, necessaire pour demander sa justification. */
+        String scanId,
         String filename,
         String hash,
         String status,

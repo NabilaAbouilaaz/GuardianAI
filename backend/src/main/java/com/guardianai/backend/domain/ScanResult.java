@@ -53,6 +53,19 @@ public class ScanResult {
     @Column(name = "analyzed_at", nullable = false)
     private Instant analyzedAt;
 
+    /**
+     * Valeur de base du modele et somme des contributions SHAP, en log-odds.
+     *
+     * Conservees pour pouvoir revalider une explication archivee : la sigmoide de
+     * leur somme doit redonner le score enregistre. Nulles lorsque l'analyse a ete
+     * realisee sans explication.
+     */
+    @Column(name = "shap_base_value")
+    private Double shapBaseValue;
+
+    @Column(name = "shap_sum")
+    private Double shapSum;
+
     protected ScanResult() {
         // requis par JPA
     }
@@ -115,5 +128,24 @@ public class ScanResult {
 
     public Instant getAnalyzedAt() {
         return analyzedAt;
+    }
+
+    public Double getShapBaseValue() {
+        return shapBaseValue;
+    }
+
+    public Double getShapSum() {
+        return shapSum;
+    }
+
+    /**
+     * Attache les references permettant de revalider l'explication.
+     *
+     * Methode distincte du constructeur : une analyse reste valide sans
+     * explication, ces valeurs sont donc optionnelles par nature.
+     */
+    public void attacherExplication(Double baseValue, Double sum) {
+        this.shapBaseValue = baseValue;
+        this.shapSum = sum;
     }
 }

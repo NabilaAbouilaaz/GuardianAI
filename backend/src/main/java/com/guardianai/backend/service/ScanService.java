@@ -1,12 +1,16 @@
 package com.guardianai.backend.service;
 
+import com.guardianai.backend.domain.ScanContribution;
 import com.guardianai.backend.domain.ScanResult;
 import com.guardianai.backend.dto.AlertRecordDto;
+import com.guardianai.backend.dto.ContributionDto;
 import com.guardianai.backend.dto.FileTypeCountDto;
+import com.guardianai.backend.dto.IaContribution;
 import com.guardianai.backend.dto.IaVerdict;
 import com.guardianai.backend.dto.ScanRecordDto;
 import com.guardianai.backend.dto.ServiceStatusDto;
 import com.guardianai.backend.dto.TrendPointDto;
+import com.guardianai.backend.repository.ScanContributionRepository;
 import com.guardianai.backend.repository.ScanResultRepository;
 import java.time.Duration;
 import java.time.Instant;
@@ -20,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,18 +44,27 @@ public class ScanService {
 
     private final IaEngineClient iaEngine;
     private final ScanResultRepository repository;
+    private final ScanContributionRepository contributions;
 
-    public ScanService(IaEngineClient iaEngine, ScanResultRepository repository) {
+    public ScanService(IaEngineClient iaEngine, ScanResultRepository repository,
+                       ScanContributionRepository contributions) {
         this.iaEngine = iaEngine;
         this.repository = repository;
+        this.contributions = contributions;
     }
 
-    /** Analyse un fichier et conserve le verdict en base. */
+    /**
+     * Analyse un fichier, conserve le verdict et sa justification.
+     *
+     * L'explication est demandee des l'analyse : la base ne garde que l'empreinte
+     * du fichier, jamais son contenu. Ne pas l'enregistrer maintenant reviendrait
+     * a rendre la decision definitivement inexplicable (exigence RF-11).
+     */
     @Transactional
     public ScanRecordDto analyzeAndStore(MultipartFile file) {
-        IaVerdict verdict = iaEngine.analyze(file);
+        IaVerdict verdict = iaEngine.analyze(file, true);
 
-        ScanResult saved = repository.save(new ScanResult(
+        ScanResult analyse = new ScanResult(
                 verdict.filename(),
                 verdict.sha256(),
                 verdict.tailleOctets(),
@@ -59,9 +73,35 @@ public class ScanService {
                 verdict.scoreMalveillance(),
                 verdict.seuilApplique(),
                 verdict.modelVersion(),
-                verdict.dureeMs()));
+                verdict.dureeMs());
+
+        if (verdict.aUneExplication()) {
+            analyse.attacherExplication(verdict.valeurDeBase(), verdict.sommeContributions());
+        }
+
+        ScanResult saved = repository.save(analyse);
+
+        // Une explication manquante n'invalide pas l'analyse : le verdict reste
+        // exploitable, seule sa justification fait defaut. On ne bloque donc pas.
+        if (verdict.aUneExplication()) {
+            List<ScanContribution> lignes = new ArrayList<>();
+            int rang = 0;
+            for (IaContribution c : verdict.contributions()) {
+                lignes.add(new ScanContribution(
+                        saved.getId(), c.groupe(), c.valeur(), c.direction(), rang++));
+            }
+            this.contributions.saveAll(lignes);
+        }
 
         return toDto(saved);
+    }
+
+    /** Justification archivee d'une analyse, dans l'ordre de poids decroissant. */
+    @Transactional(readOnly = true)
+    public List<ContributionDto> contributionsOf(UUID scanId) {
+        return contributions.findByScanResultIdOrderByRangAsc(scanId).stream()
+                .map(c -> new ContributionDto(c.getGroupe(), c.getValeur(), c.getDirection()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -131,6 +171,7 @@ public class ScanService {
                 .limit(max)
                 .map(a -> new AlertRecordDto(
                         "ALT-" + a.getId().toString().substring(0, 4).toUpperCase(Locale.ROOT),
+                        a.getId().toString(),
                         titreAlerte(a),
                         a.getFilename(),
                         "MALICIOUS".equals(a.getClassification()) ? "CRITICAL" : "MEDIUM",
@@ -172,6 +213,7 @@ public class ScanService {
     private static ScanRecordDto toDto(ScanResult a) {
         return new ScanRecordDto(
                 "SCN-" + a.getId().toString().substring(0, 6).toUpperCase(Locale.ROOT),
+                a.getId().toString(),
                 a.getFilename(),
                 a.getSha256() == null ? "" : a.getSha256().substring(0, Math.min(16, a.getSha256().length())),
                 a.getClassification(),

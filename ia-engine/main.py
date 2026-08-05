@@ -15,6 +15,7 @@ from collections import OrderedDict
 
 import joblib
 import numpy as np
+import shap
 import thrember
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
@@ -27,6 +28,31 @@ MAX_FILE_SIZE = 200 * 1024 * 1024  # 200 Mo (UC-01)
 SEUIL_SUSPECT = 0.5
 CACHE_MAX = 5000  # nombre d'empreintes conservees en memoire
 
+# Decoupage du vecteur de caracteristiques par groupe.
+#
+# Le vecteur produit par thrember (2568 dimensions) est la concatenation de
+# plusieurs extracteurs. Les valeurs SHAP sont calculees par dimension, ce qui
+# n'est pas exploitable tel quel : "caracteristique 1847" ne parle a personne.
+# On les agrege donc par groupe, qui a un sens pour un analyste.
+#
+# Bornes relevees avec inspect_features.py sur la version installee de thrember,
+# et non supposees : un decalage d'un seul indice attribuerait silencieusement une
+# contribution au mauvais groupe. Relancer ce script apres toute mise a jour.
+GROUPES = {
+    "general":         (0, 7,       "Informations generales"),
+    "histogram":       (7, 263,     "Histogramme d'octets"),
+    "byteentropy":     (263, 519,   "Entropie des octets"),
+    "strings":         (519, 696,   "Chaines de caracteres"),
+    "header":          (696, 770,   "En-tetes PE"),
+    "section":         (770, 994,   "Sections"),
+    "imports":         (994, 2276,  "Fonctions importees"),
+    "exports":         (2276, 2405, "Fonctions exportees"),
+    "datadirectories": (2405, 2439, "Repertoires de donnees"),
+    "richheader":      (2439, 2472, "En-tete Rich"),
+    "authenticode":    (2472, 2480, "Signature numerique"),
+    "pefilewarnings":  (2480, 2568, "Anomalies de structure PE"),
+}
+
 app = FastAPI(
     title="GuardianAI — Moteur IA",
     description="Analyse de fichiers et classification benin / suspect / malveillant.",
@@ -38,6 +64,12 @@ app = FastAPI(
 # dominait le temps de reponse (mesure : ~2,5 s par fichier).
 model = joblib.load(MODEL_PATH)
 extractor = thrember.PEFeatureExtractor()
+
+# TreeExplainer exploite la structure des arbres pour calculer les valeurs de
+# Shapley exactes en temps polynomial, la ou le calcul generique serait
+# exponentiel. Construit une seule fois : le reconstruire par requete couterait
+# plusieurs secondes.
+explainer = shap.TreeExplainer(model)
 
 with open(METRICS_PATH, encoding="utf-8") as f:
     metrics = json.load(f)
@@ -87,6 +119,56 @@ def _classer(score: float) -> str:
     return "benin"
 
 
+def _contributions(vecteur: np.ndarray) -> dict:
+    """Repartit la decision du modele entre les groupes de caracteristiques.
+
+    Les valeurs de Shapley sont calculees dans l'espace des log-odds, celui ou
+    LightGBM additionne les sorties de ses arbres. La somme des contributions
+    ajoutee a la valeur de base redonne donc la marge brute, dont la sigmoide
+    redonne la probabilite. Les deux quantites sont exposees pour permettre de
+    verifier cette egalite : une explication qui ne se recompose pas est fausse.
+    """
+    valeurs = explainer.shap_values(vecteur)
+
+    # Selon la version de shap et le type de modele, la sortie est soit un
+    # tableau, soit une liste d'un tableau par classe. On se ramene au vecteur
+    # de la classe positive.
+    if isinstance(valeurs, list):
+        valeurs = valeurs[-1]
+    valeurs = np.asarray(valeurs, dtype=np.float64).reshape(-1)
+
+    base = explainer.expected_value
+    if isinstance(base, (list, np.ndarray)):
+        base = float(np.asarray(base).reshape(-1)[-1])
+    else:
+        base = float(base)
+
+    contributions = []
+    for debut, fin, libelle in GROUPES.values():
+        total = float(valeurs[debut:fin].sum())
+        contributions.append({
+            "groupe": libelle,
+            "valeur": round(total, 4),
+            "direction": "malveillant" if total > 0 else "benin",
+        })
+
+    # Tri par poids decroissant : l'analyste doit voir en premier ce qui a le
+    # plus pese, quel que soit le sens.
+    contributions.sort(key=lambda c: abs(c["valeur"]), reverse=True)
+
+    somme = float(valeurs.sum())
+    marge = base + somme
+
+    return {
+        "contributions": contributions,
+        "valeur_de_base": round(base, 4),
+        "somme_contributions": round(somme, 4),
+        # Reconstruction du score a partir de la seule explication : doit
+        # coincider avec score_malveillance a l'arrondi pres.
+        "score_reconstruit": round(float(1.0 / (1.0 + np.exp(-marge))) * 100, 2),
+    }
+
+
 def _mettre_en_cache(empreinte: str, resultat: dict) -> None:
     _cache[empreinte] = resultat
     _cache.move_to_end(empreinte)
@@ -95,8 +177,14 @@ def _mettre_en_cache(empreinte: str, resultat: dict) -> None:
 
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    """Analyse un fichier et retourne un verdict avec son score de confiance."""
+async def predict(file: UploadFile = File(...), expliquer: bool = False):
+    """Analyse un fichier et retourne un verdict avec son score de confiance.
+
+    Le parametre `expliquer` ajoute la decomposition SHAP a la reponse. Il existe
+    pour eviter au client d'enchainer /predict puis /explain, ce qui extrairait
+    deux fois les caracteristiques du meme fichier : l'extraction domine le temps
+    de reponse, la recalculer serait le double du cout utile.
+    """
     debut = time.perf_counter()
     contents = await file.read()
 
@@ -111,9 +199,18 @@ async def predict(file: UploadFile = File(...)):
 
     empreinte = hashlib.sha256(contents).hexdigest()
 
-    if empreinte in _cache:
-        resultat = dict(_cache[empreinte])
+    # Le cache n'est utilisable que s'il contient deja ce que le client demande :
+    # une entree enregistree sans explication ne peut pas en fournir une, le
+    # vecteur n'ayant pas ete conserve.
+    en_cache = _cache.get(empreinte)
+    if en_cache is not None and (not expliquer or "contributions" in en_cache):
+        resultat = dict(en_cache)
         _cache.move_to_end(empreinte)
+        if not expliquer:
+            resultat.pop("contributions", None)
+            resultat.pop("valeur_de_base", None)
+            resultat.pop("somme_contributions", None)
+            resultat.pop("score_reconstruit", None)
         resultat["filename"] = file.filename
         resultat["cache"] = True
         resultat["duree_ms"] = round((time.perf_counter() - debut) * 1000, 1)
@@ -123,6 +220,7 @@ async def predict(file: UploadFile = File(...)):
         vecteur = np.asarray(extractor.feature_vector(contents),
                              dtype=np.float32).reshape(1, -1)
         score = float(model.predict(vecteur)[0])
+        explication = _contributions(vecteur) if expliquer else {}
     except Exception as exc:  # fichier illisible, corrompu ou format non gere
         raise HTTPException(
             status_code=422,
@@ -138,6 +236,7 @@ async def predict(file: UploadFile = File(...)):
         "seuil_applique": round(SEUIL_MALVEILLANT * 100, 2),
         "model_version": MODEL_VERSION,
         "cache": False,
+        **explication,
     }
 
     _mettre_en_cache(empreinte, {k: v for k, v in resultat.items()
@@ -145,3 +244,46 @@ async def predict(file: UploadFile = File(...)):
 
     resultat["duree_ms"] = round((time.perf_counter() - debut) * 1000, 1)
     return resultat
+
+
+@app.post("/explain")
+async def explain(file: UploadFile = File(...)):
+    """Explique le verdict rendu sur un fichier, groupe par groupe.
+
+    Endpoint distinct de /predict et non extension de celui-ci : l'explication
+    n'est utile que lorsqu'un analyste la demande, et l'imposer a chaque analyse
+    penaliserait le cas courant sans benefice.
+    """
+    debut = time.perf_counter()
+    contents = await file.read()
+
+    if len(contents) == 0:
+        raise HTTPException(status_code=400, detail="Fichier vide.")
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="Fichier trop volumineux (limite : 200 Mo).",
+        )
+
+    empreinte = hashlib.sha256(contents).hexdigest()
+
+    try:
+        vecteur = np.asarray(extractor.feature_vector(contents),
+                             dtype=np.float32).reshape(1, -1)
+        score = float(model.predict(vecteur)[0])
+        explication = _contributions(vecteur)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Explication impossible : {type(exc).__name__} — {exc}",
+        ) from exc
+
+    return {
+        "filename": file.filename,
+        "sha256": empreinte,
+        "classification": _classer(score),
+        "score_malveillance": round(score * 100, 2),
+        "model_version": MODEL_VERSION,
+        **explication,
+        "duree_ms": round((time.perf_counter() - debut) * 1000, 1),
+    }

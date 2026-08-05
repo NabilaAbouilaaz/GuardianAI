@@ -1,6 +1,7 @@
 package com.guardianai.backend.controller;
 
 import com.guardianai.backend.dto.AlertRecordDto;
+import com.guardianai.backend.dto.ContributionDto;
 import com.guardianai.backend.dto.FileTypeCountDto;
 import com.guardianai.backend.dto.ScanRecordDto;
 import com.guardianai.backend.dto.ServiceStatusDto;
@@ -9,12 +10,14 @@ import com.guardianai.backend.service.IaEngineClient;
 import com.guardianai.backend.service.ScanService;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -58,6 +61,15 @@ public class ScanController {
     @GetMapping("/stats/file-types")
     public List<FileTypeCountDto> fileTypes() {
         return scanService.fileTypeBreakdown();
+    }
+
+    /**
+     * Justification archivee d'une analyse : contributions de chaque groupe de
+     * caracteristiques au verdict, de la plus determinante a la moins.
+     */
+    @GetMapping("/scans/{id}/contributions")
+    public List<ContributionDto> contributions(@PathVariable UUID id) {
+        return scanService.contributionsOf(id);
     }
 
     @GetMapping("/alerts")

@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   AlertRecord,
+  Contribution,
   FileTypeCount,
   ScanRecord,
   ServiceStatus,
@@ -56,6 +57,18 @@ export class GuardianDataService {
    * l'analyse telle qu'elle vient d'être écrite en base : elle porte donc déjà
    * son identifiant et son horodatage définitifs.
    */
+  /**
+   * Justification archivée d'une analyse : contribution de chaque groupe de
+   * caractéristiques au verdict, de la plus déterminante à la moins.
+   *
+   * Les contributions sont enregistrées au moment de l'analyse, la base ne
+   * conservant que l'empreinte du fichier et non son contenu. Une analyse
+   * antérieure à cette fonctionnalité renverra donc une liste vide.
+   */
+  getContributions(scanId: string): Observable<Contribution[]> {
+    return this.http.get<Contribution[]>(`${this.api}/scans/${scanId}/contributions`);
+  }
+
   scanFile(file: File): Observable<ScanRecord> {
     const body = new FormData();
     body.append('file', file);

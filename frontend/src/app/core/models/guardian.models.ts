@@ -5,6 +5,8 @@ export type AlertStatus = 'OPEN' | 'INVESTIGATING' | 'RESOLVED';
 
 export interface ScanRecord {
   id: string;
+  /** Identifiant réel de l'analyse, nécessaire pour demander sa justification. */
+  scanId: string;
   filename: string;
   hash: string;
   status: ScanStatus;
@@ -17,6 +19,8 @@ export interface ScanRecord {
 
 export interface AlertRecord {
   id: string;
+  /** Identifiant réel de l'analyse à l'origine de l'alerte. */
+  scanId: string;
   title: string;
   file: string;
   severity: AlertSeverity;
@@ -37,10 +41,17 @@ export interface FileTypeCount {
   count: number;
 }
 
-export interface ShapFeature {
-  feature: string;
-  score: number;
-  direction: 'malicious' | 'benign';
+/**
+ * Contribution d'un groupe de caractéristiques au verdict, calculée par SHAP.
+ *
+ * `valeur` est exprimée en log-odds : c'est l'espace dans lequel LightGBM
+ * additionne ses arbres. Son signe donne le sens, sa valeur absolue le poids
+ * relatif. Elle ne s'interprète pas comme un pourcentage.
+ */
+export interface Contribution {
+  groupe: string;
+  valeur: number;
+  direction: 'malveillant' | 'benin';
 }
 
 export interface ServiceStatus {

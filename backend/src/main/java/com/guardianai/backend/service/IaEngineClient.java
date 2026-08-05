@@ -56,6 +56,15 @@ public class IaEngineClient {
      * @throws IaEngineUnavailableException si le moteur ne repond pas
      */
     public IaVerdict analyze(MultipartFile file) {
+        return analyze(file, false);
+    }
+
+    /**
+     * @param expliquer demande au moteur de joindre la decomposition SHAP.
+     *                  Calculee dans la meme passe que la prediction, elle evite
+     *                  une seconde extraction des caracteristiques.
+     */
+    public IaVerdict analyze(MultipartFile file, boolean expliquer) {
         byte[] bytes;
         try {
             bytes = file.getBytes();
@@ -81,7 +90,9 @@ public class IaEngineClient {
 
         try {
             return client.post()
-                    .uri("/predict")
+                    .uri(builder -> builder.path("/predict")
+                            .queryParam("expliquer", expliquer)
+                            .build())
                     .contentType(MediaType.MULTIPART_FORM_DATA)
                     .body(body)
                     .retrieve()

@@ -73,24 +73,34 @@
 
     <!-- SHAP -->
     <div class="mb-6">
-      <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A] mb-3.5">
-        Feature Importance (SHAP)
+      <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A] mb-1">
+        Contribution au verdict (SHAP)
       </div>
-      <div *ngFor="let f of shapFeatures" class="mb-2.5">
+      <div class="font-sans text-[11px] text-[#5A7A9A] mb-3.5">
+        Poids de chaque groupe de caractéristiques dans la décision du modèle,
+        du plus déterminant au moins.
+      </div>
+
+      <div *ngIf="contributionsIndisponibles" class="font-sans text-xs text-[#5A7A9A] italic">
+        Aucune justification enregistrée pour cette analyse. Le fichier n'étant pas
+        conservé, elle ne peut pas être recalculée.
+      </div>
+
+      <div *ngFor="let c of contributions" class="mb-2.5">
         <div class="flex justify-between mb-1">
-          <span class="font-sans text-xs text-[#8BA4C0]">{{ f.feature }}</span>
+          <span class="font-sans text-xs text-[#8BA4C0]">{{ c.groupe }}</span>
           <span
             class="font-mono text-[11px]"
-            [style.color]="f.direction === 'malicious' ? '#FF4444' : '#00FF88'"
+            [style.color]="c.direction === 'malveillant' ? '#FF4444' : '#00FF88'"
           >
-            {{ f.direction === 'malicious' ? '+' : '-' }}{{ (f.score * 100).toFixed(0) }}%
+            {{ c.valeur > 0 ? '+' : '' }}{{ c.valeur.toFixed(2) }}
           </span>
         </div>
         <div class="h-[3px] bg-white/[0.06] rounded overflow-hidden">
           <div
             class="h-full rounded"
-            [style.width.%]="f.score * 100"
-            [style.background]="f.direction === 'malicious' ? '#FF4444' : '#00FF88'"
+            [style.width.%]="largeur(c)"
+            [style.background]="c.direction === 'malveillant' ? '#FF4444' : '#00FF88'"
           ></div>
         </div>
       </div>
@@ -98,8 +108,11 @@
 
     <!-- Remediation -->
     <div class="bg-[#FF4444]/[0.06] border border-[#FF4444]/20 rounded px-5 py-4">
-      <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#FF4444] mb-2.5">
-        Remediation Recommendations
+      <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#FF4444] mb-1">
+        Actions de remédiation
+      </div>
+      <div class="font-sans text-[11px] text-[#5A7A9A] mb-2.5">
+        Procédure standard de réponse à incident, indépendante de l'analyse du fichier.
       </div>
       <div *ngFor="let r of remediation; let i = index" class="flex gap-2.5 mb-1.5 items-start">
         <span class="font-mono text-[10px] text-[#FF4444] min-w-[20px]">{{ (i + 1).toString().padStart(2, '0') }}</span>

@@ -50,7 +50,7 @@ Sous Linux ou macOS, remplacer `venv\Scripts\activate` par `source venv/bin/acti
 
 La documentation interactive de l'API est ensuite accessible sur `http://127.0.0.1:8000/docs`. Elle permet de tester le moteur directement depuis le navigateur, sans écrire une ligne de code.
 
-Trois points d'entrée sont disponibles. `GET /health` indique si le service répond. `GET /model-info` renvoie le modèle actuellement en service, le seuil de décision appliqué et les performances mesurées. `POST /predict` analyse un fichier, dans la limite de 200 Mo.
+Quatre points d'entrée sont disponibles. `GET /health` indique si le service répond. `GET /model-info` renvoie le modèle actuellement en service, le seuil de décision appliqué et les performances mesurées. `POST /predict` analyse un fichier, dans la limite de 200 Mo. `POST /explain` décompose un verdict en contributions par groupe de caractéristiques.
 
 Voici la réponse renvoyée par une analyse :
 
@@ -86,6 +86,22 @@ mvn spring-boot:run
 ```
 
 Les paramètres de connexion sont surchargeables sans modifier le code, via les variables d'environnement `DB_URL`, `DB_USER` et `DB_PASSWORD` — ce qui permet de pointer vers une base distante en recette ou en production.
+
+### Justifier un verdict
+
+Un score seul ne permet pas à un analyste de vérifier une décision, ni de l'expliquer. Le moteur décompose donc chaque verdict en contributions par groupe de caractéristiques, calculées avec SHAP.
+
+```
+Chaines de caracteres      −3.13   pousse vers benin
+Histogramme d'octets       −1.99   pousse vers benin
+Repertoires de donnees     −1.86   pousse vers benin
+...
+Signature numerique        +0.15   pousse vers malveillant
+```
+
+Ces contributions sont **enregistrées en base au moment de l'analyse**, et non recalculées à la demande : seule l'empreinte du fichier est conservée, jamais son contenu. Les recalculer plus tard serait impossible, et une décision deviendrait inexplicable dès que le fichier analysé disparaît — ce que l'exigence de traçabilité RF-11 interdit.
+
+Les valeurs sont exprimées en log-odds, l'espace dans lequel le modèle additionne ses arbres. Leur somme, ajoutée à la valeur de base, redonne exactement le score prédit : l'explication se recompose en la décision, elle n'en est pas une approximation.
 
 ### Le frontend
 

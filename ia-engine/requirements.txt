@@ -19,6 +19,11 @@ lightgbm~=4.5.0
 numpy~=1.26.0
 joblib~=1.4.0
 
+# Explicabilite des verdicts. TreeExplainer exploite la structure des arbres de
+# LightGBM pour calculer les contributions exactes en temps polynomial, la ou le
+# calcul generique des valeurs de Shapley serait exponentiel.
+shap~=0.46.0
+
 # --- Extraction de caracteristiques
 # thrember fournit PEFeatureExtractor (jeu de caracteristiques EMBER2024, version 3).
 # Ce paquet n'est pas publie sur PyPI et s'installe depuis son depot d'origine.

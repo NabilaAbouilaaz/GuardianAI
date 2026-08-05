@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { GuardianDataService } from '../../core/services/guardian-data.service';
-import { AlertRecord, ShapFeature } from '../../core/models/guardian.models';
+import { AlertRecord, Contribution } from '../../core/models/guardian.models';
 import { SeverityBadgeComponent } from '../../shared/components/severity-badge/severity-badge.component';
 import { AlertStatusBadgeComponent } from '../../shared/components/alert-status-badge/alert-status-badge.component';
 
@@ -16,22 +16,24 @@ export class AlertsComponent implements OnInit {
   alerts: AlertRecord[] = [];
   selectedId: string | null = null;
 
-  // TODO(amélioration facile): brancher sur GuardianDataService.getShapFeatures(alertId)
-  // et GuardianDataService.getRemediation(alertId) quand le backend IA sera prêt.
-  readonly shapFeatures: ShapFeature[] = [
-    { feature: 'Mass file encryption loop', score: 0.94, direction: 'malicious' },
-    { feature: 'Shadow copy deletion (VSS)', score: 0.88, direction: 'malicious' },
-    { feature: 'Wallpaper modification via registry', score: 0.76, direction: 'malicious' },
-    { feature: 'C2 beacon pattern (TLS 1.2)', score: 0.71, direction: 'malicious' },
-    { feature: 'Valid PE signature present', score: 0.32, direction: 'benign' },
-  ];
+  /** Contributions réelles de l'alerte sélectionnée, calculées par SHAP. */
+  contributions: Contribution[] = [];
+  contributionsIndisponibles = false;
 
+  /**
+   * Recommandations de remédiation.
+   *
+   * Ce sont des actions standard de réponse à incident, communes à toute
+   * détection critique. Elles ne résultent d'aucune analyse du fichier et sont
+   * présentées comme telles dans l'interface, pour ne pas les faire passer pour
+   * un résultat du moteur.
+   */
   readonly remediation: string[] = [
-    'Immediately quarantine the host machine from the network.',
-    'Isolate all shared drives mounted by the affected endpoint.',
-    'Revoke and rotate all credentials accessible from this machine.',
-    'Initiate forensic image of the disk before remediation.',
-    'Report incident to SOC lead within 1 hour (SLA: critical).',
+    "Isoler la machine concernée du réseau.",
+    "Vérifier les partages réseau montés depuis ce poste.",
+    "Renouveler les identifiants accessibles depuis cette machine.",
+    "Conserver une copie du fichier et des journaux avant toute remédiation.",
+    "Signaler l'incident au responsable sécurité.",
   ];
 
   error: string | null = null;
@@ -45,8 +47,10 @@ export class AlertsComponent implements OnInit {
     this.data.getAlerts().subscribe({
       next: (v) => {
         this.alerts = v;
-        this.selectedId = v[0]?.id ?? null;
         this.error = null;
+        if (v.length) {
+          this.select(v[0].id);
+        }
         this.cdr.detectChanges();
       },
       error: (e: HttpErrorResponse) => {
@@ -60,9 +64,43 @@ export class AlertsComponent implements OnInit {
 
   select(id: string): void {
     this.selectedId = id;
+    this.contributions = [];
+    this.contributionsIndisponibles = false;
+
+    const alerte = this.alerts.find((a) => a.id === id);
+    if (!alerte) {
+      return;
+    }
+
+    this.data.getContributions(alerte.scanId).subscribe({
+      next: (c) => {
+        this.contributions = c;
+        // Les analyses anterieures a la mise en place de SHAP n'ont pas de
+        // justification enregistree : le fichier n'ayant pas ete conserve, elle
+        // ne peut pas etre recalculee. Il faut le dire, pas afficher un vide.
+        this.contributionsIndisponibles = c.length === 0;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.contributionsIndisponibles = true;
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   get selected(): AlertRecord | undefined {
     return this.alerts.find((a) => a.id === this.selectedId);
+  }
+
+  /**
+   * Largeur de la barre, proportionnelle au poids de la contribution la plus forte.
+   *
+   * Les valeurs sont en log-odds et non bornees a 1 : les rapporter directement a
+   * un pourcentage produirait des barres incoherentes. On les normalise donc sur
+   * le maximum observe pour l'alerte affichee.
+   */
+  largeur(c: Contribution): number {
+    const max = Math.max(...this.contributions.map((x) => Math.abs(x.valeur)), 0.0001);
+    return (Math.abs(c.valeur) / max) * 100;
   }
 }
