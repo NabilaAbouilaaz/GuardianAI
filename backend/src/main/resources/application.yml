@@ -33,6 +33,16 @@ spring:
       max-request-size: 210MB
 
 guardianai:
+  jwt:
+    # Cle de signature des jetons. Au moins 32 caracteres : HMAC-SHA256 exige
+    # 256 bits, et l'application refuse de demarrer en deca.
+    # Valeur de developpement uniquement — a fournir par variable d'environnement
+    # en production, ou quiconque lit le depot pourrait forger des jetons valides.
+    secret: ${JWT_SECRET:cle-de-developpement-guardianai-a-remplacer-en-production}
+    # Duree de validite. Huit heures couvrent une journee de travail sans
+    # reconnexion, tout en limitant la fenetre d'exploitation d'un jeton vole.
+    validite-heures: ${JWT_VALIDITE_HEURES:8}
+
   ia-engine:
     # Microservice d'analyse. 127.0.0.1 et non localhost : sous Windows,
     # localhost est resolu d'abord en IPv6 alors qu'uvicorn ecoute en IPv4,

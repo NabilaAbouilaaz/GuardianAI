@@ -21,7 +21,18 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 
 BASE_DIR = os.path.dirname(__file__)
 MODEL_PATH = os.path.join(BASE_DIR, "models", "lightgbm_ember2024_v2.joblib")
-METRICS_PATH = os.path.join(BASE_DIR, "models", "metrics_ember2024_v2.json")
+
+# Metriques v3 et non v2 : le modele est le meme, seul le seuil change.
+#
+# La version v2 choisissait le seuil sur le jeu de test, puis annoncait les
+# performances sur ce meme jeu — le taux de faux positifs valait donc 2,00 % par
+# construction. La v3 calibre sur une moitie du jeu de test et mesure sur
+# l'autre, restee vierge : 0,6815 au lieu de 0,6638.
+#
+# Sur des donnees jamais vues, ce seuil donne 1,90 % de faux positifs et 97,16 %
+# de detection. La contrainte des 2 % (RNF-03) tient donc hors du jeu ayant servi
+# a la calibration, ce que l'ancienne mesure ne permettait pas d'affirmer.
+METRICS_PATH = os.path.join(BASE_DIR, "models", "metrics_ember2024_v3.json")
 
 MODEL_VERSION = "lightgbm_ember2024_v2"
 MAX_FILE_SIZE = 200 * 1024 * 1024  # 200 Mo (UC-01)

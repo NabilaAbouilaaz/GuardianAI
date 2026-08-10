@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,10 +43,17 @@ public class ScanController {
         this.scanService = scanService;
     }
 
-    /** Analyse un fichier envoye depuis l'interface. */
+    /**
+     * Analyse un fichier envoye depuis l'interface.
+     *
+     * L'identite de l'appelant provient du jeton verifie en amont, jamais d'un
+     * parametre de la requete : un client pourrait sinon attribuer son analyse a
+     * n'importe qui, ce qui viderait la tracabilite de son sens (RF-11).
+     */
     @PostMapping("/scan")
-    public ScanRecordDto scan(@RequestParam("file") MultipartFile file) {
-        return scanService.analyzeAndStore(file);
+    public ScanRecordDto scan(@RequestParam("file") MultipartFile file,
+                              Authentication authentification) {
+        return scanService.analyzeAndStore(file, UUID.fromString(authentification.getName()));
     }
 
     @GetMapping("/scans/recent")

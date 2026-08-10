@@ -10,6 +10,7 @@ import com.guardianai.backend.dto.IaVerdict;
 import com.guardianai.backend.dto.ScanRecordDto;
 import com.guardianai.backend.dto.ServiceStatusDto;
 import com.guardianai.backend.dto.TrendPointDto;
+import com.guardianai.backend.repository.AppUserRepository;
 import com.guardianai.backend.repository.ScanContributionRepository;
 import com.guardianai.backend.repository.ScanResultRepository;
 import java.time.Duration;
@@ -45,12 +46,28 @@ public class ScanService {
     private final IaEngineClient iaEngine;
     private final ScanResultRepository repository;
     private final ScanContributionRepository contributions;
+    private final AppUserRepository utilisateurs;
 
     public ScanService(IaEngineClient iaEngine, ScanResultRepository repository,
-                       ScanContributionRepository contributions) {
+                       ScanContributionRepository contributions,
+                       AppUserRepository utilisateurs) {
         this.iaEngine = iaEngine;
         this.repository = repository;
         this.contributions = contributions;
+        this.utilisateurs = utilisateurs;
+    }
+
+    /**
+     * Correspondance identifiant vers nom affichable.
+     *
+     * Chargee en une fois plutot qu'utilisateur par utilisateur : les comptes se
+     * comptent en dizaines, alors qu'une resolution par analyse produirait une
+     * requete supplementaire par ligne affichee.
+     */
+    private Map<UUID, String> nomsDesAnalystes() {
+        Map<UUID, String> noms = new LinkedHashMap<>();
+        utilisateurs.findAll().forEach(u -> noms.put(u.getId(), u.getDisplayName()));
+        return noms;
     }
 
     /**
@@ -61,7 +78,7 @@ public class ScanService {
      * a rendre la decision definitivement inexplicable (exigence RF-11).
      */
     @Transactional
-    public ScanRecordDto analyzeAndStore(MultipartFile file) {
+    public ScanRecordDto analyzeAndStore(MultipartFile file, UUID analystId) {
         IaVerdict verdict = iaEngine.analyze(file, true);
 
         ScanResult analyse = new ScanResult(
@@ -78,6 +95,7 @@ public class ScanService {
         if (verdict.aUneExplication()) {
             analyse.attacherExplication(verdict.valeurDeBase(), verdict.sommeContributions());
         }
+        analyse.attribuerA(analystId);
 
         ScanResult saved = repository.save(analyse);
 
@@ -93,7 +111,7 @@ public class ScanService {
             this.contributions.saveAll(lignes);
         }
 
-        return toDto(saved);
+        return toDto(saved, nomsDesAnalystes());
     }
 
     /** Justification archivee d'une analyse, dans l'ordre de poids decroissant. */
@@ -106,8 +124,9 @@ public class ScanService {
 
     @Transactional(readOnly = true)
     public List<ScanRecordDto> recentScans(int max) {
+        Map<UUID, String> noms = nomsDesAnalystes();
         return repository.findAllByOrderByAnalyzedAtDesc(Limit.of(max))
-                .stream().map(ScanService::toDto).toList();
+                .stream().map(a -> toDto(a, noms)).toList();
     }
 
     /** Repartition des verdicts sur les sept derniers jours. */
@@ -165,6 +184,7 @@ public class ScanService {
      */
     @Transactional(readOnly = true)
     public List<AlertRecordDto> alerts(int max) {
+        Map<UUID, String> noms = nomsDesAnalystes();
         return repository.findAllByOrderByAnalyzedAtDesc(Limit.of(200)).stream()
                 .filter(a -> !"CLEAN".equals(a.getClassification()))
                 .sorted(Comparator.comparing(ScanResult::getAnalyzedAt).reversed())
@@ -176,7 +196,8 @@ public class ScanService {
                         a.getFilename(),
                         "MALICIOUS".equals(a.getClassification()) ? "CRITICAL" : "MEDIUM",
                         HEURE.format(a.getAnalyzedAt()),
-                        "Moteur IA",
+                        a.getAnalystId() == null ? "—"
+                                : noms.getOrDefault(a.getAnalystId(), "Compte supprime"),
                         "OPEN"))
                 .toList();
     }
@@ -210,7 +231,14 @@ public class ScanService {
 
     // --- Conversions internes
 
-    private static ScanRecordDto toDto(ScanResult a) {
+    private static ScanRecordDto toDto(ScanResult a, Map<UUID, String> noms) {
+        // Analyses realisees avant l'authentification : l'auteur est inconnu et
+        // doit le rester. Afficher un nom arbitraire serait une contrevérité dans
+        // une table qui sert de preuve.
+        String analyste = a.getAnalystId() == null
+                ? "—"
+                : noms.getOrDefault(a.getAnalystId(), "Compte supprime");
+
         return new ScanRecordDto(
                 "SCN-" + a.getId().toString().substring(0, 6).toUpperCase(Locale.ROOT),
                 a.getId().toString(),
@@ -218,7 +246,7 @@ public class ScanService {
                 a.getSha256() == null ? "" : a.getSha256().substring(0, Math.min(16, a.getSha256().length())),
                 a.getClassification(),
                 confiance(a),
-                "Moteur IA",
+                analyste,
                 HORODATAGE.format(a.getAnalyzedAt()),
                 tailleLisible(a.getSizeBytes()),
                 a.getFileType() == null ? "-" : a.getFileType());

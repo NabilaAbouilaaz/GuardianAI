@@ -73,35 +73,53 @@
 
     <!-- SHAP -->
     <div class="mb-6">
-      <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A] mb-1">
-        Contribution au verdict (SHAP)
-      </div>
-      <div class="font-sans text-[11px] text-[#5A7A9A] mb-3.5">
-        Poids de chaque groupe de caractéristiques dans la décision du modèle,
-        du plus déterminant au moins.
-      </div>
-
       <div *ngIf="contributionsIndisponibles" class="font-sans text-xs text-[#5A7A9A] italic">
         Aucune justification enregistrée pour cette analyse. Le fichier n'étant pas
         conservé, elle ne peut pas être recalculée.
       </div>
 
-      <div *ngFor="let c of contributions" class="mb-2.5">
-        <div class="flex justify-between mb-1">
-          <span class="font-sans text-xs text-[#8BA4C0]">{{ c.groupe }}</span>
-          <span
-            class="font-mono text-[11px]"
-            [style.color]="c.direction === 'malveillant' ? '#FF4444' : '#00FF88'"
-          >
-            {{ c.valeur > 0 ? '+' : '' }}{{ c.valeur.toFixed(2) }}
-          </span>
+      <div *ngIf="contributions.length">
+        <div class="font-sans text-[13px] text-[#E2EBF5] leading-relaxed mb-4">
+          {{ resumeAlerte }}
         </div>
-        <div class="h-[3px] bg-white/[0.06] rounded overflow-hidden">
-          <div
-            class="h-full rounded"
-            [style.width.%]="largeur(c)"
-            [style.background]="c.direction === 'malveillant' ? '#FF4444' : '#00FF88'"
-          ></div>
+
+        <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A] mb-1">
+          Ce qui a pesé dans la décision
+        </div>
+        <div class="font-sans text-[11px] text-[#5A7A9A] mb-3.5">
+          En vert, ce qui rassure. En rouge, ce qui inquiète.
+        </div>
+
+        <div *ngFor="let c of contributions" class="mb-2.5">
+          <div class="flex justify-between mb-1">
+            <span class="font-sans text-xs text-[#8BA4C0]">{{ c.groupe }}</span>
+            <span class="font-mono text-[10px] tracking-[0.05em]" [style.color]="c.direction === 'malveillant' ? '#FF4444' : '#00FF88'">
+              {{ niveau(c) }}
+              <span *ngIf="detailsOuverts" class="text-[#5A7A9A]">
+                &middot; {{ c.valeur > 0 ? '+' : '' }}{{ c.valeur.toFixed(2) }}
+              </span>
+            </span>
+          </div>
+          <div class="h-[3px] bg-white/[0.06] rounded overflow-hidden">
+            <div
+              class="h-full rounded"
+              [style.width.%]="largeur(c)"
+              [style.background]="c.direction === 'malveillant' ? '#FF4444' : '#00FF88'"
+            ></div>
+          </div>
+        </div>
+
+        <button
+          (click)="detailsOuverts = !detailsOuverts"
+          class="font-mono text-[10px] tracking-[0.08em] text-[#5A7A9A] underline cursor-pointer bg-transparent border-0 p-0 mt-2"
+        >
+          {{ detailsOuverts ? 'MASQUER LES DÉTAILS TECHNIQUES' : 'DÉTAILS TECHNIQUES' }}
+        </button>
+
+        <div *ngIf="detailsOuverts" class="font-sans text-[11px] text-[#5A7A9A] leading-relaxed mt-2">
+          Valeurs exprimées en log-odds, l'espace dans lequel le modèle additionne
+          ses arbres. Leur somme, ajoutée à la valeur de base, redonne exactement
+          le score prédit.
         </div>
       </div>
     </div>

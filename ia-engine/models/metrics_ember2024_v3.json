@@ -1,0 +1,12 @@
+{
+  "seuil": 0.6814536314367057,
+  "roc_auc": 0.9975200130864196,
+  "faux_positifs": 0.018988888888888889,
+  "detection": 0.9715666666666667,
+  "detection_challenge": 0.7534441805225653,
+  "dataset": "EMBER2024 (.NET + Win64)",
+  "n_train": 150000,
+  "methode_seuil": "calibre sur une moitie du jeu de test, mesure sur l'autre",
+  "n_validation": 180000,
+  "n_test": 180000
+}

@@ -39,14 +39,33 @@ dont la version est strictement imposée.
 
 | Fichier | Statut |
 |---|---|
-| `lightgbm_ember2024_v2.joblib` | **En service.** Référencé par `MODEL_PATH` dans `main.py`. |
-| `metrics_ember2024_v2.json` | Métriques et seuil calibré du modèle en service. |
+| `lightgbm_ember2024_v2.joblib` | **Modèle en service.** Référencé par `MODEL_PATH`. |
+| `metrics_ember2024_v3.json` | **Métriques en service.** Seuil calibré sur un jeu de validation distinct. |
+| `metrics_ember2024_v2.json` | Métriques initiales, conservées pour trace. Seuil calibré sur le jeu de test lui-même. |
 | `lightgbm_ember2024_v1.joblib` | Itération précédente, conservée pour comparaison. |
 | `xgboost_baseline_v1.joblib` | Référence initiale, écartée au profit de LightGBM. |
 
 Le seuil de décision n'est **pas** codé en dur : il est lu depuis le fichier de métriques
 au démarrage (`SEUIL_MALVEILLANT = float(metrics["seuil"])`). Réentraîner le modèle
 implique donc de régénérer les deux fichiers ensemble.
+
+### Pourquoi v3 et non v2
+
+Le modèle est identique dans les deux cas ; seul le seuil change.
+
+La version v2 sélectionnait le seuil sur le jeu de test, puis annonçait les performances
+sur ce même jeu. Le taux de faux positifs valait donc 2,00 % **par construction**, et le
+taux de détection de 97,27 % était légèrement optimiste.
+
+La v3 coupe le jeu de test en deux : le seuil est calibré sur une moitié, les performances
+mesurées sur l'autre. Résultat : seuil 0,6815, **1,90 % de faux positifs et 97,16 % de
+détection** sur des données jamais utilisées pour la calibration.
+
+L'écart est faible — 0,11 point — ce qui s'explique par la taille du jeu de test, 180 000
+fichiers de chaque côté. Mais la seconde mesure permet d'affirmer que la contrainte des 2 %
+tient hors du jeu de calibration, ce que la première ne permettait pas.
+
+La cellule ayant produit ces chiffres est `CELLULE_COLAB_recalibration.py`.
 
 ## Choix de conception à ne pas défaire
 
@@ -118,14 +137,42 @@ caractéristiques du même fichier, ce qui doublerait le coût dominant.
 Le cache LRU ne sert une entrée que si elle contient déjà ce qui est demandé : une analyse
 mise en cache sans explication ne peut pas en fournir une, le vecteur n'étant pas conservé.
 
-## Observation à creuser
+## Le groupe `authenticode` sur les binaires Windows — question tranchée
 
-Sur trois binaires système Microsoft signés (`notepad.exe`, `calc.exe`, `wpnpinst.exe`), le
-groupe `authenticode` contribue **toujours positivement**, c'est-à-dire vers un verdict
-malveillant : +0,35, +0,34 et +0,15.
+**Constat initial.** Sur trois binaires système Microsoft (`notepad.exe`, `calc.exe`,
+`wpnpinst.exe`), le groupe `authenticode` contribue toujours vers un verdict malveillant :
++0,35, +0,34 et +0,15. Contre-intuitif pour des fichiers signés par Microsoft.
 
-Une piste plausible : si `signify` échoue à analyser ces signatures, les caractéristiques du
-groupe resteraient à leur valeur par défaut, que le modèle associerait à un binaire non
-signé. À vérifier en inspectant directement les valeurs extraites sur ces indices. Trois
-fichiers restent un échantillon trop faible pour conclure, mais la régularité justifie
-l'investigation.
+**Hypothèse écartée.** On a d'abord soupçonné un échec silencieux de `signify`, qui aurait
+laissé les huit dimensions à leur valeur par défaut. Vérification faite avec
+`inspect_authenticode.py`, les valeurs brutes sont bien toutes nulles — mais avec
+`parse_error: 0`. Or le code de `thrember` met ce drapeau à 1 dès qu'une exception survient :
+
+```python
+except signify.exceptions.ParseError:
+    raw_obj["parse_error"] = 1
+```
+
+Aucune erreur, donc aucune signature trouvée. L'extraction n'a pas échoué.
+
+**Explication réelle.** Microsoft ne signe pas ses binaires système en intégrant le
+certificat dans le fichier. Elle utilise des **catalogues de sécurité** — des fichiers `.cat`
+séparés qui référencent l'empreinte du binaire. Le fichier lui-même ne contient aucune
+signature, et `num_certs: 0` est donc exact.
+
+Vérification directe, en interrogeant `signify` sans passer par la vectorisation :
+
+```
+notepad.exe  → 0 signature intégrée
+Code.exe     → 1 signature intégrée
+```
+
+**Conclusion.** L'extraction fonctionne, l'environnement local est cohérent avec celui de
+l'entraînement, et les métriques ne sont pas affectées. La contribution positive traduit un
+fait : le modèle a appris que l'absence de signature intégrée est plus fréquente chez les
+malwares que chez les logiciels commercialement distribués. Sur un binaire système signé par
+catalogue, ce raisonnement est mis en défaut — mais le verdict global reste correct, les
+autres groupes compensant largement.
+
+C'est une limite intéressante à mentionner : le modèle ne distingue pas « non signé » de
+« signé par catalogue ».

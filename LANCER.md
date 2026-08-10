@@ -69,6 +69,28 @@ ng serve
 
 `npm install` n'est nécessaire qu'à la première utilisation. L'interface est ensuite accessible sur `http://localhost:4200`.
 
+## 5. Se connecter
+
+L'API est fermée depuis la mise en place de l'authentification (RF-07). Deux comptes existent sur une installation neuve :
+
+| Identifiant | Mot de passe initial | Rôle |
+|---|---|---|
+| `admin` | `Adm1n-Guardian-2026` | Administrateur |
+| `analyste` | `An4lyste-Guardian-2026` | Analyste |
+
+**Ces mots de passe cessent d'être valides dès la première connexion** : l'application impose leur renouvellement avant de donner accès aux vues métier. Les publier ici ne crée donc pas de vulnérabilité durable — c'est précisément le rôle de cette contrainte.
+
+Le nouveau mot de passe doit faire au moins douze caractères et contenir une lettre et un chiffre.
+
+En cas de mot de passe oublié, ou pour repartir d'un état propre, un script remet les deux comptes à leur valeur initiale. Depuis **SQL Shell (psql)** :
+
+```sql
+\c guardianai
+\i 'C:/Users/aboui/OneDrive/Desktop/New folder/GuardianAI/backend/scripts/reinitialiser_comptes.sql'
+```
+
+Il lève aussi tout blocage en cours — cinq échecs consécutifs verrouillent un compte pendant quinze minutes.
+
 ## Vérifier que la chaîne fonctionne
 
 Dans un quatrième terminal, sans rien arrêter :
@@ -77,13 +99,27 @@ Dans un quatrième terminal, sans rien arrêter :
 curl http://127.0.0.1:8080/api/v1/status
 ```
 
-Les trois composants doivent apparaître en `OPERATIONAL`. Puis l'analyse complète d'un fichier :
+Les trois composants doivent apparaître en `OPERATIONAL`. Cet endpoint reste accessible sans authentification, afin de permettre un diagnostic même quand la connexion est en cause.
+
+L'analyse d'un fichier, elle, exige un jeton. On l'obtient par la connexion :
 
 ```bash
-curl -F "file=@C:/Windows/System32/notepad.exe" http://127.0.0.1:8080/api/v1/scan
+curl -X POST -H "Content-Type: application/json" ^
+  -d "{\"username\":\"analyste\",\"password\":\"VOTRE_MOT_DE_PASSE\"}" ^
+  http://localhost:8080/api/v1/auth/login
+```
+
+Puis on le présente à chaque appel :
+
+```bash
+curl -H "Authorization: Bearer LE_JETON" ^
+  -F "file=@C:/Windows/System32/notepad.exe" ^
+  http://localhost:8080/api/v1/scan
 ```
 
 Le fichier traverse alors toute la chaîne : terminal, backend Java, moteur Python, enregistrement en base, retour du verdict en JSON. Un résultat avec `"status":"CLEAN"` signifie que tout fonctionne.
+
+Le plus simple reste toutefois de passer par l'interface, qui gère le jeton pour vous.
 
 Enfin, pour voir l'historique enregistré :
 

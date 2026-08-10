@@ -66,6 +66,13 @@ public class ScanResult {
     @Column(name = "shap_sum")
     private Double shapSum;
 
+    /**
+     * Auteur de l'analyse. Nul pour les analyses anterieures a la mise en place
+     * de l'authentification : leur inventer un auteur fausserait la tracabilite.
+     */
+    @Column(name = "analyst_id")
+    private UUID analystId;
+
     protected ScanResult() {
         // requis par JPA
     }
@@ -147,5 +154,13 @@ public class ScanResult {
     public void attacherExplication(Double baseValue, Double sum) {
         this.shapBaseValue = baseValue;
         this.shapSum = sum;
+    }
+
+    public UUID getAnalystId() {
+        return analystId;
+    }
+
+    public void attribuerA(UUID analystId) {
+        this.analystId = analystId;
     }
 }

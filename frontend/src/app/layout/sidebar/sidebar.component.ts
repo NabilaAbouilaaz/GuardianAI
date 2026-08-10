@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from '../../core/services/auth.service';
 import { IconComponent, IconName } from '../../shared/components/icon/icon.component';
 
 interface NavEntry {
@@ -32,10 +33,31 @@ interface NavEntry {
           {{ item.label }}
         </a>
       </nav>
+
+      <!--
+        Utilisateur connecté. Savoir sous quelle identité on agit est une
+        exigence de base dans un outil dont chaque action est tracée (RF-11) :
+        l'analyste doit pouvoir vérifier d'un coup d'œil que ses analyses lui
+        seront bien attribuées.
+      -->
+      <div *ngIf="auth.utilisateur() as u" class="border-t border-white/[0.07] px-5 py-4">
+        <div class="font-sans text-[13px] text-[#E2EBF5] mb-0.5">{{ u.nom }}</div>
+        <div class="font-mono text-[10px] tracking-[0.06em] text-[#5A7A9A] mb-3">
+          {{ u.role === 'ADMINISTRATEUR' ? 'Administrateur' : 'Analyste' }}
+        </div>
+        <button
+          (click)="auth.deconnexion()"
+          class="w-full font-mono text-[10px] tracking-[0.08em] text-[#5A7A9A] bg-transparent border border-white/[0.1] px-3 py-2 rounded-sm cursor-pointer hover:text-[#FF4444] hover:border-[#FF4444]/40 transition-colors"
+        >
+          SE DÉCONNECTER
+        </button>
+      </div>
     </aside>
   `,
 })
 export class SidebarComponent {
+  readonly auth = inject(AuthService);
+
   nav: NavEntry[] = [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
     { label: 'Scan', route: '/scan', icon: 'scan' },

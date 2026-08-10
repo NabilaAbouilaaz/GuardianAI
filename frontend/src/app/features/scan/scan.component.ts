@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component } from '@angular/core';
 import { GuardianDataService } from '../../core/services/guardian-data.service';
 import { Contribution, ScanRecord, ScanStatus } from '../../core/models/guardian.models';
+import { largeur, niveau, resume } from '../../core/explication';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 
@@ -17,6 +18,8 @@ interface QueuedFile {
   /** Justification du verdict, chargee a la demande. */
   contributions?: Contribution[];
   explicationOuverte?: boolean;
+  /** Affiche les valeurs SHAP brutes, masquees par defaut. */
+  detailsOuverts?: boolean;
 }
 
 @Component({
@@ -137,16 +140,17 @@ export class ScanComponent {
     });
   }
 
-  /**
-   * Largeur de barre normalisee sur la contribution la plus forte.
-   *
-   * Les valeurs sont en log-odds, non bornees a 1 : les traiter comme des
-   * pourcentages produirait des barres incoherentes.
-   */
   largeur(item: QueuedFile, c: Contribution): number {
-    const valeurs = item.contributions ?? [];
-    const max = Math.max(...valeurs.map((x) => Math.abs(x.valeur)), 0.0001);
-    return (Math.abs(c.valeur) / max) * 100;
+    return largeur(c, item.contributions ?? []);
+  }
+
+  niveau(item: QueuedFile, c: Contribution): string {
+    return niveau(c, item.contributions ?? []);
+  }
+
+  /** Phrase de synthese affichee avant le detail groupe par groupe. */
+  resume(item: QueuedFile): string {
+    return resume(item.contributions ?? [], item.result ?? 'PROCESSING');
   }
 
   /**

@@ -20,17 +20,27 @@ Le backend joue le rôle de chef d'orchestre : il reçoit les fichiers envoyés 
 
 ## Résultats du moteur de détection
 
-Les mesures ci-dessous ont été obtenues sur le jeu de test EMBER2024. L'évaluation utilise un découpage chronologique : le modèle est entraîné sur les fichiers les plus anciens et testé sur les plus récents. Cela reproduit la situation réelle, où le moteur doit affronter des menaces apparues après son entraînement — un découpage aléatoire donnerait des chiffres plus flatteurs mais trompeurs.
+Les mesures ci-dessous portent sur le jeu de test d'EMBER2024, soit **360 000 fichiers** répartis à parts égales entre bénins et malveillants.
 
-Le moteur détecte **97,27 %** des fichiers malveillants, pour un objectif fixé à 95 % minimum.
+L'évaluation repose sur les sous-ensembles `train` et `test` fournis par EMBER2024, dont la séparation est **chronologique** : les fichiers de test sont postérieurs à ceux d'entraînement. Le moteur affronte donc des menaces apparues après son apprentissage, ce qui reproduit la situation réelle. Un découpage aléatoire donnerait des chiffres plus flatteurs mais trompeurs, une variante d'un malware pouvant alors se retrouver des deux côtés.
 
-Il génère **2,00 %** de fausses alertes, ce qui correspond exactement au plafond de 2 % fixé par le cahier des charges. Ce chiffre est important : un outil qui crie au loup trop souvent finit par être ignoré des analystes.
+Le modèle a été entraîné sur **150 000 fichiers** échantillonnés parmi les 1 560 000 disponibles, la mémoire de l'environnement d'entraînement ne permettant pas d'en charger davantage.
+
+Le moteur détecte **97,16 %** des fichiers malveillants, pour un objectif fixé à 95 % minimum.
+
+Il génère **1,90 %** de fausses alertes, sous le plafond de 2 % fixé par le cahier des charges. Ce chiffre est important : un outil qui crie au loup trop souvent finit par être ignoré des analystes.
 
 Le temps d'analyse est de **0,42 seconde en médiane**, et de **2,22 secondes au 95e percentile**, donc sous la limite de 3 secondes exigée.
 
-Enfin, le moteur détecte **75,72 %** des malwares dits évasifs : des fichiers qui avaient échappé à environ 70 antivirus commerciaux au moment de leur apparition. C'est la démonstration la plus concrète de l'intérêt de l'approche : l'analyse par apprentissage rattrape une partie de ce que les signatures laissent passer.
+Enfin, le moteur détecte **75,34 %** des malwares dits évasifs : 4 758 fichiers sur les 6 315 du jeu `challenge`, tous confirmés malveillants, qui avaient échappé à environ 70 antivirus commerciaux au moment de leur apparition. C'est la démonstration la plus concrète de l'intérêt de l'approche : l'analyse par apprentissage rattrape une partie de ce que les signatures laissent passer.
 
 En complément, le moteur a été testé sur 50 exécutables système Windows parfaitement légitimes : **aucun n'a été signalé à tort**.
+
+### Comment le seuil est établi
+
+Le seuil de décision n'est pas fixé à 0,5 par défaut. Il découle d'une contrainte métier : ne pas dépasser 2 % de fausses alertes (RNF-03). On cherche donc le seuil le plus permissif respectant cette limite, ce qui donne **0,6815**.
+
+Ce seuil est calibré sur une moitié du jeu de test, et les performances annoncées sont mesurées sur l'autre moitié, restée vierge. Cette précaution a son importance : une première version calibrait sur l'ensemble du jeu de test puis y mesurait ses résultats, ce qui produisait mécaniquement un taux de faux positifs de 2,00 % et un taux de détection de 97,27 %, légèrement optimiste. L'écart entre les deux méthodes est faible — 0,11 point — mais la seconde permet d'affirmer que la contrainte tient sur des données jamais vues, ce que la première ne permettait pas.
 
 ## Démarrage rapide
 

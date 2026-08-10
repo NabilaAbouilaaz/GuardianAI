@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { GuardianDataService } from '../../core/services/guardian-data.service';
 import { AlertRecord, Contribution } from '../../core/models/guardian.models';
+import { largeur, niveau, resume } from '../../core/explication';
 import { SeverityBadgeComponent } from '../../shared/components/severity-badge/severity-badge.component';
 import { AlertStatusBadgeComponent } from '../../shared/components/alert-status-badge/alert-status-badge.component';
 
@@ -19,6 +20,8 @@ export class AlertsComponent implements OnInit {
   /** Contributions réelles de l'alerte sélectionnée, calculées par SHAP. */
   contributions: Contribution[] = [];
   contributionsIndisponibles = false;
+  /** Affiche les valeurs SHAP brutes, masquees par defaut. */
+  detailsOuverts = false;
 
   /**
    * Recommandations de remédiation.
@@ -92,15 +95,21 @@ export class AlertsComponent implements OnInit {
     return this.alerts.find((a) => a.id === this.selectedId);
   }
 
-  /**
-   * Largeur de la barre, proportionnelle au poids de la contribution la plus forte.
-   *
-   * Les valeurs sont en log-odds et non bornees a 1 : les rapporter directement a
-   * un pourcentage produirait des barres incoherentes. On les normalise donc sur
-   * le maximum observe pour l'alerte affichee.
-   */
   largeur(c: Contribution): number {
-    const max = Math.max(...this.contributions.map((x) => Math.abs(x.valeur)), 0.0001);
-    return (Math.abs(c.valeur) / max) * 100;
+    return largeur(c, this.contributions);
+  }
+
+  niveau(c: Contribution): string {
+    return niveau(c, this.contributions);
+  }
+
+  /**
+   * Phrase de synthese. Une alerte n'existe que pour un verdict non benin ;
+   * la severite critique correspond a un verdict malveillant, les autres a
+   * un fichier juge suspect.
+   */
+  get resumeAlerte(): string {
+    const statut = this.selected?.severity === 'CRITICAL' ? 'MALICIOUS' : 'SUSPICIOUS';
+    return resume(this.contributions, statut);
   }
 }

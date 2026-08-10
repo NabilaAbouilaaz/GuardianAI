@@ -1,0 +1,86 @@
+<div class="min-h-screen flex items-center justify-center bg-[#070B12] px-6">
+  <div class="w-full max-w-[380px]">
+
+    <!-- Identité -->
+    <div class="flex items-center gap-2.5 justify-center mb-2">
+      <gd-icon name="shield"></gd-icon>
+      <span class="font-mono text-lg font-semibold text-[#E2EBF5]">GuardianAI</span>
+    </div>
+    <p class="font-sans text-[12px] text-[#5A7A9A] text-center mb-8">
+      Détection de malwares par apprentissage automatique
+    </p>
+
+    <form
+      (ngSubmit)="valider()"
+      class="bg-[#0C1220] border border-white/[0.07] rounded p-6 flex flex-col gap-4"
+    >
+      <div class="font-mono text-[11px] tracking-[0.12em] uppercase text-[#5A7A9A]">
+        Connexion
+      </div>
+
+      <!-- Session expirée ou déconnexion volontaire -->
+      <div
+        *ngIf="avis"
+        class="bg-[#FFB800]/[0.08] border border-[#FFB800]/30 rounded px-3.5 py-2.5 font-sans text-[12px] text-[#FFB800]"
+      >
+        {{ avis }}
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label for="username" class="font-mono text-[10px] tracking-[0.08em] uppercase text-[#5A7A9A]">
+          Identifiant
+        </label>
+        <input
+          id="username"
+          name="username"
+          type="text"
+          autocomplete="username"
+          [(ngModel)]="username"
+          [disabled]="enCours"
+          class="bg-[#070B12] border border-white/[0.1] rounded px-3.5 py-2.5 font-mono text-[13px] text-[#E2EBF5] outline-none focus:border-[#00FF88]/50 transition-colors"
+        />
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label for="password" class="font-mono text-[10px] tracking-[0.08em] uppercase text-[#5A7A9A]">
+          Mot de passe
+        </label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          [(ngModel)]="password"
+          [disabled]="enCours"
+          class="bg-[#070B12] border border-white/[0.1] rounded px-3.5 py-2.5 font-mono text-[13px] text-[#E2EBF5] outline-none focus:border-[#00FF88]/50 transition-colors"
+        />
+      </div>
+
+      <div
+        *ngIf="erreur"
+        class="bg-[#FF4444]/[0.08] border border-[#FF4444]/30 rounded px-3.5 py-2.5 font-sans text-[12px] text-[#FF4444]"
+      >
+        {{ erreur }}
+      </div>
+
+      <button
+        type="submit"
+        [disabled]="enCours"
+        class="mt-1 font-mono text-[11px] tracking-[0.1em] text-[#00FF88] bg-[#00FF88]/10 border border-[#00FF88]/[0.35] px-6 py-3 rounded-sm cursor-pointer hover:bg-[#00FF88]/[0.16] transition-colors disabled:opacity-50 disabled:cursor-wait"
+      >
+        {{ enCours ? 'CONNEXION EN COURS…' : 'SE CONNECTER' }}
+      </button>
+    </form>
+
+    <!--
+      Aucun identifiant n'est affiché ici. Les mots de passe initiaux sont
+      documentés dans la migration V4, transmis à l'utilisateur par un autre
+      canal, et deviennent caducs dès la première connexion puisque leur
+      renouvellement est imposé.
+    -->
+    <p class="mt-5 font-sans text-[11px] text-[#3E566E] text-center leading-relaxed">
+      Vos identifiants vous sont communiqués par l'administrateur de la plateforme.
+      Le mot de passe initial doit être renouvelé à la première connexion.
+    </p>
+  </div>
+</div>
