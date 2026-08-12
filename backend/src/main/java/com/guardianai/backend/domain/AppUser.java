@@ -150,4 +150,25 @@ public class AppUser {
         this.passwordHash = nouvelleEmpreinte;
         this.mustChangePassword = false;
     }
+
+    /** Impose le renouvellement : utilise a la creation et a la reinitialisation. */
+    public void imposerChangementDeMotDePasse() {
+        this.mustChangePassword = true;
+    }
+
+    /**
+     * Active ou desactive le compte.
+     *
+     * On ne supprime jamais un compte : les analyses conservent l'identifiant de
+     * leur auteur, et l'effacer rendrait ces traces anonymes retroactivement.
+     */
+    public void changerActivation(boolean actif) {
+        this.enabled = actif;
+    }
+
+    /** Leve un blocage en cours, sans attendre l'expiration du delai. */
+    public void debloquer() {
+        this.failedAttempts = 0;
+        this.lockedUntil = null;
+    }
 }

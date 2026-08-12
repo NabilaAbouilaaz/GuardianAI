@@ -8,6 +8,8 @@ interface NavEntry {
   label: string;
   route: string;
   icon: IconName;
+  /** Réservée aux administrateurs. */
+  admin?: boolean;
 }
 
 @Component({
@@ -23,7 +25,7 @@ interface NavEntry {
 
       <nav class="flex-1 py-3">
         <a
-          *ngFor="let item of nav"
+          *ngFor="let item of entreesVisibles"
           [routerLink]="item.route"
           routerLinkActive="bg-[#00FF88]/[0.06] border-l-2 border-l-[#00FF88] text-[#00FF88]"
           class="flex items-center gap-3 px-5 py-3 text-[13px] font-mono text-[#5A7A9A] border-l-2 border-l-transparent hover:bg-white/[0.03] transition-colors"
@@ -58,10 +60,24 @@ interface NavEntry {
 export class SidebarComponent {
   readonly auth = inject(AuthService);
 
+  // Libellés en français, comme le reste de l'interface. Les chemins d'URL
+  // restent en anglais : les changer casserait les liens déjà partagés, sans
+  // rien apporter à l'utilisateur qui ne les lit pas.
   nav: NavEntry[] = [
-    { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
-    { label: 'Scan', route: '/scan', icon: 'scan' },
-    { label: 'Alerts', route: '/alerts', icon: 'alert' },
-    { label: 'System Status', route: '/system-status', icon: 'settings' },
+    { label: 'Tableau de bord', route: '/dashboard', icon: 'dashboard' },
+    { label: 'Analyse', route: '/scan', icon: 'scan' },
+    { label: 'Alertes', route: '/alerts', icon: 'alert' },
+    { label: 'État des services', route: '/system-status', icon: 'settings' },
+    { label: 'Comptes', route: '/utilisateurs', icon: 'settings', admin: true },
   ];
+
+  /**
+   * Entrées réellement accessibles à l'utilisateur connecté.
+   *
+   * Masquer une entrée qu'un analyste ne peut pas ouvrir vaut mieux que de la
+   * proposer pour la refuser ensuite : un menu doit refléter ce qui est possible.
+   */
+  get entreesVisibles(): NavEntry[] {
+    return this.nav.filter((e) => !e.admin || this.auth.estAdministrateur());
+  }
 }

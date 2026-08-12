@@ -2,7 +2,10 @@
   <!-- List -->
   <div class="bg-[#0C1220] border border-white/[0.07] rounded overflow-auto">
     <div class="px-5 py-3.5 border-b border-white/[0.07] font-mono text-[11px] tracking-[0.12em] uppercase text-[#5A7A9A]">
-      Alert Queue ({{ alerts.length }})
+      Alertes ({{ alerts.length }})
+    </div>
+    <div *ngIf="!alerts.length && !error" class="px-5 py-5 font-sans text-[12px] text-[#5A7A9A] leading-relaxed">
+      Aucune alerte. Seules les analyses jugées suspectes ou malveillantes en génèrent.
     </div>
     <div *ngIf="error" class="px-5 py-3.5 font-mono text-[11px] text-[#FF4444]">
       {{ error }}
@@ -33,41 +36,124 @@
         </div>
         <h2 class="font-sans text-xl font-semibold text-[#E2EBF5] m-0">{{ sel.title }}</h2>
       </div>
+      <!--
+        Ces trois boutons enregistrent l'appréciation de l'analyste sur le
+        verdict du moteur. Elle ne remplace pas la mesure : elle s'y superpose,
+        et permettra de comparer le taux de faux positifs constaté en
+        exploitation à celui mesuré sur le jeu de test.
+      -->
       <div class="flex gap-2">
-        <button class="font-mono text-[10px] text-[#FFB800] bg-[#FFB800]/[0.08] border border-[#FFB800]/30 px-3.5 py-1.5 rounded-sm cursor-pointer">
-          FALSE POSITIVE
+        <button
+          (click)="donnerAvis('CONFIRME')"
+          [disabled]="avisEnCours"
+          title="Le verdict du moteur est juste, l'incident est pris en charge"
+          class="font-mono text-[10px] text-[#FF4444] bg-[#FF4444]/[0.08] border border-[#FF4444]/30 px-3.5 py-1.5 rounded-sm cursor-pointer disabled:opacity-40 disabled:cursor-wait"
+        >
+          CONFIRMER
         </button>
-        <button class="font-mono text-[10px] text-[#00FF88] bg-[#00FF88]/[0.08] border border-[#00FF88]/30 px-3.5 py-1.5 rounded-sm cursor-pointer">
-          RESOLVE
+        <button
+          (click)="donnerAvis('FAUX_POSITIF')"
+          [disabled]="avisEnCours"
+          title="Le fichier est sain, le moteur s'est trompé"
+          class="font-mono text-[10px] text-[#FFB800] bg-[#FFB800]/[0.08] border border-[#FFB800]/30 px-3.5 py-1.5 rounded-sm cursor-pointer disabled:opacity-40 disabled:cursor-wait"
+        >
+          FAUX POSITIF
         </button>
+        <button
+          (click)="donnerAvis('TRAITE')"
+          [disabled]="avisEnCours"
+          title="Incident clos, sans se prononcer sur le verdict"
+          class="font-mono text-[10px] text-[#00FF88] bg-[#00FF88]/[0.08] border border-[#00FF88]/30 px-3.5 py-1.5 rounded-sm cursor-pointer disabled:opacity-40 disabled:cursor-wait"
+        >
+          TRAITÉ
+        </button>
+      </div>
+    </div>
+
+    <div
+      *ngIf="avisErreur"
+      class="bg-[#FF4444]/[0.08] border border-[#FF4444]/30 rounded px-3.5 py-2.5 font-sans text-[12px] text-[#FF4444] mb-4"
+    >
+      {{ avisErreur }}
+    </div>
+
+    <!--
+      Qualification par l'analyste. C'est le cœur de son travail : le moteur
+      mesure, l'analyste contextualise selon les actifs touchés et justifie son
+      jugement pour l'escalade et l'amélioration des règles de détection.
+    -->
+    <div class="bg-[#0A1018] border border-white/[0.07] rounded p-5 mb-6">
+      <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A] mb-1">
+        Qualification
+      </div>
+      <div class="font-sans text-[11px] text-[#5A7A9A] mb-4">
+        Le moteur mesure, vous contextualisez. Votre analyse est conservée avec votre nom
+        et sa date.
+      </div>
+
+      <div class="flex flex-col gap-1.5 mb-4">
+        <label class="font-mono text-[10px] tracking-[0.08em] uppercase text-[#5A7A9A]">
+          Criticité retenue
+        </label>
+        <select
+          name="criticite" [(ngModel)]="criticiteRetenue" [disabled]="avisEnCours"
+          class="bg-[#070B12] border border-white/[0.1] rounded px-3 py-2 font-sans text-[13px] text-[#E2EBF5] outline-none focus:border-[#00FF88]/50 max-w-[280px]"
+        >
+          <option [ngValue]="null">Celle déduite du verdict</option>
+          <option value="CRITICAL">Critique</option>
+          <option value="HIGH">Élevée</option>
+          <option value="MEDIUM">Moyenne</option>
+        </select>
+        <span class="font-sans text-[11px] text-[#5A7A9A]">
+          Le moteur ignore les actifs touchés : un même fichier n'a pas la même gravité
+          sur un poste isolé et sur un serveur de production.
+        </span>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label class="font-mono text-[10px] tracking-[0.08em] uppercase text-[#5A7A9A]">
+          Analyse
+        </label>
+        <textarea
+          name="commentaire" [(ngModel)]="commentaire" [disabled]="avisEnCours" rows="4"
+          placeholder="Contexte, actifs concernés, mesures de blocage proposées…"
+          class="bg-[#070B12] border border-white/[0.1] rounded px-3 py-2 font-sans text-[13px] text-[#E2EBF5] outline-none focus:border-[#00FF88]/50 resize-y"
+        ></textarea>
+        <span class="font-sans text-[11px] text-[#5A7A9A]">
+          Obligatoire pour déclarer un faux positif — contredire la mesure sans
+          l'expliquer n'aide personne.
+        </span>
       </div>
     </div>
 
     <!-- Meta -->
     <div class="grid grid-cols-3 gap-px bg-white/[0.04] mb-6 rounded overflow-hidden">
       <div class="p-3.5 bg-[#0A1018]">
-        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Alert ID</div>
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Identifiant</div>
         <div class="font-mono text-xs text-[#E2EBF5]">{{ sel.id }}</div>
       </div>
       <div class="p-3.5 bg-[#0A1018]">
-        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">File</div>
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Fichier</div>
         <div class="font-mono text-xs text-[#E2EBF5]">{{ sel.file }}</div>
       </div>
       <div class="p-3.5 bg-[#0A1018]">
-        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Analyst</div>
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Analyste</div>
         <div class="font-mono text-xs text-[#E2EBF5]">{{ sel.analyst }}</div>
       </div>
       <div class="p-3.5 bg-[#0A1018]">
-        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Detected</div>
-        <div class="font-mono text-xs text-[#E2EBF5]">Today {{ sel.time }}</div>
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Détectée à</div>
+        <div class="font-mono text-xs text-[#E2EBF5]">{{ sel.time }}</div>
       </div>
       <div class="p-3.5 bg-[#0A1018]">
-        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Status</div>
-        <div class="font-mono text-xs text-[#E2EBF5]">{{ sel.status }}</div>
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">État</div>
+        <!-- Le badge traduit la constante ; l'afficher brute ici serait incohérent. -->
+        <gd-alert-status-badge [status]="sel.status"></gd-alert-status-badge>
       </div>
       <div class="p-3.5 bg-[#0A1018]">
-        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Source</div>
-        <div class="font-mono text-xs text-[#E2EBF5]">AI Engine v2.1.4</div>
+        <div class="font-mono text-[10px] text-[#5A7A9A] mb-1">Criticité</div>
+        <div class="font-mono text-xs text-[#E2EBF5]">
+          {{ sel.criticiteAjustee ? 'Fixée par l\'analyste' : 'Déduite du verdict' }}
+        </div>
       </div>
     </div>
 

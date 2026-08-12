@@ -69,6 +69,26 @@ export class GuardianDataService {
     return this.http.get<Contribution[]>(`${this.api}/scans/${scanId}/contributions`);
   }
 
+  /**
+   * Enregistre l'appréciation d'un analyste sur un verdict.
+   *
+   * L'avis se superpose au verdict du moteur sans le remplacer. C'est aussi la
+   * seule façon de mesurer le taux de faux positifs constaté en exploitation,
+   * par opposition à celui mesuré sur le jeu de test.
+   */
+  enregistrerAvis(
+    scanId: string,
+    avis: 'CONFIRME' | 'FAUX_POSITIF' | 'TRAITE',
+    commentaire?: string,
+    criticite?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | null,
+  ): Observable<unknown> {
+    return this.http.post(`${this.api}/scans/${scanId}/avis`, {
+      avis,
+      commentaire: commentaire ?? null,
+      criticite: criticite ?? null,
+    });
+  }
+
   scanFile(file: File): Observable<ScanRecord> {
     const body = new FormData();
     body.append('file', file);

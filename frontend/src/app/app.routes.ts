@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { adminGuard } from './core/admin.guard';
 import { authGuard } from './core/auth.guard';
 
 /**
@@ -45,6 +46,15 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/system-status/system-status.component').then(
         (m) => m.SystemStatusComponent,
+      ),
+  },
+  {
+    // Réservée aux administrateurs, en plus de l'authentification.
+    path: 'utilisateurs',
+    canActivate: [authGuard, adminGuard],
+    loadComponent: () =>
+      import('./features/utilisateurs/utilisateurs.component').then(
+        (m) => m.UtilisateursComponent,
       ),
   },
   { path: '**', redirectTo: 'dashboard' },

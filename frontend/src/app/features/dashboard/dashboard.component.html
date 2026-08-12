@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-6">
   <div>
-    <h2 class="font-mono text-lg font-semibold text-[#E2EBF5] m-0 mb-1">Security Dashboard</h2>
-    <p class="font-sans text-[13px] text-[#5A7A9A] m-0">Real-time overview of threat detection activity</p>
+    <h2 class="font-mono text-lg font-semibold text-[#E2EBF5] m-0 mb-1">Tableau de bord</h2>
+    <p class="font-sans text-[13px] text-[#5A7A9A] m-0">Vue d'ensemble de l'activité de détection</p>
   </div>
 
   <!-- Bandeau d'erreur : sans lui, une panne du backend ressemble a une base vide -->
@@ -14,15 +14,26 @@
 
   <!-- Stat cards -->
   <div class="grid grid-cols-4 gap-4">
-    <gd-stat-card label="Malicious (7d)" [value]="totalMalicious" color="#FF4444"></gd-stat-card>
-    <gd-stat-card label="Suspicious (7d)" [value]="totalSuspicious" color="#FFB800"></gd-stat-card>
-    <gd-stat-card label="Clean (7d)" [value]="totalClean" color="#00FF88"></gd-stat-card>
-    <gd-stat-card label="Total Scans (7d)" [value]="totalScans"></gd-stat-card>
+    <gd-stat-card label="Malveillants (7j)" [value]="totalMalicious" color="#FF4444"></gd-stat-card>
+    <gd-stat-card label="Suspects (7j)" [value]="totalSuspicious" color="#FFB800"></gd-stat-card>
+    <gd-stat-card label="Bénins (7j)" [value]="totalClean" color="#00FF88"></gd-stat-card>
+    <gd-stat-card label="Total analyses (7j)" [value]="totalScans"></gd-stat-card>
   </div>
 
   <!-- File type breakdown -->
   <div class="bg-[#0C1220] border border-white/[0.07] rounded p-5">
-    <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A] mb-4">File Type Breakdown</div>
+    <!--
+      Ce décompte porte sur tout l'historique, alors que les cartes ci-dessus
+      couvrent sept jours. Sans cette précision, deux totaux différents à
+      l'écran passent pour une incohérence.
+    -->
+    <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A] mb-1">
+      Répartition par type de fichier — tout l'historique
+    </div>
+    <div class="font-sans text-[11px] text-[#5A7A9A] mb-4">
+      Répartition depuis la première analyse, contrairement aux compteurs ci-dessus
+      qui portent sur sept jours.
+    </div>
     <div class="flex flex-col gap-2.5">
       <div *ngFor="let t of fileTypes" class="flex items-center gap-3">
         <span class="font-mono text-[11px] text-[#8BA4C0] w-12">{{ t.type }}</span>
@@ -40,17 +51,17 @@
   <!-- Recent scans table -->
   <div class="bg-[#0C1220] border border-white/[0.07] rounded overflow-hidden">
     <div class="px-5 py-3.5 border-b border-white/[0.07] font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A]">
-      Recent Scans
+      Analyses récentes
     </div>
     <table class="w-full text-left border-collapse">
       <thead>
         <tr class="font-mono text-[10px] tracking-[0.08em] uppercase text-[#5A7A9A]">
-          <th class="px-5 py-2 font-normal">ID</th>
-          <th class="px-5 py-2 font-normal">Filename</th>
-          <th class="px-5 py-2 font-normal">Status</th>
-          <th class="px-5 py-2 font-normal">Confidence</th>
-          <th class="px-5 py-2 font-normal">Analyst</th>
-          <th class="px-5 py-2 font-normal">Timestamp</th>
+          <th class="px-5 py-2 font-normal">Identifiant</th>
+          <th class="px-5 py-2 font-normal">Fichier</th>
+          <th class="px-5 py-2 font-normal">Verdict</th>
+          <th class="px-5 py-2 font-normal">Confiance</th>
+          <th class="px-5 py-2 font-normal">Analyste</th>
+          <th class="px-5 py-2 font-normal">Date</th>
         </tr>
       </thead>
       <tbody>

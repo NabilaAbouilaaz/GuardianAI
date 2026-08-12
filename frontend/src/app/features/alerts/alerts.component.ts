@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { GuardianDataService } from '../../core/services/guardian-data.service';
 import { AlertRecord, Contribution } from '../../core/models/guardian.models';
 import { largeur, niveau, resume } from '../../core/explication';
@@ -10,7 +11,7 @@ import { AlertStatusBadgeComponent } from '../../shared/components/alert-status-
 @Component({
   selector: 'gd-alerts',
   standalone: true,
-  imports: [CommonModule, SeverityBadgeComponent, AlertStatusBadgeComponent],
+  imports: [CommonModule, FormsModule, SeverityBadgeComponent, AlertStatusBadgeComponent],
   templateUrl: './alerts.component.html',
 })
 export class AlertsComponent implements OnInit {
@@ -69,11 +70,17 @@ export class AlertsComponent implements OnInit {
     this.selectedId = id;
     this.contributions = [];
     this.contributionsIndisponibles = false;
+    this.avisErreur = null;
 
     const alerte = this.alerts.find((a) => a.id === id);
     if (!alerte) {
       return;
     }
+
+    // On repart de la justification déjà enregistrée : l'analyste doit pouvoir
+    // relire et corriger son propre commentaire, pas repartir d'une page blanche.
+    this.commentaire = alerte.commentaire ?? '';
+    this.criticiteRetenue = alerte.criticiteAjustee ? alerte.severity : null;
 
     this.data.getContributions(alerte.scanId).subscribe({
       next: (c) => {
@@ -93,6 +100,63 @@ export class AlertsComponent implements OnInit {
 
   get selected(): AlertRecord | undefined {
     return this.alerts.find((a) => a.id === this.selectedId);
+  }
+
+  /** Avis en cours d'envoi, pour désactiver les boutons pendant l'appel. */
+  avisEnCours = false;
+  avisErreur: string | null = null;
+
+  /** Justification saisie par l'analyste, et criticité qu'il retient. */
+  commentaire = '';
+  criticiteRetenue: 'CRITICAL' | 'HIGH' | 'MEDIUM' | null = null;
+
+  /**
+   * Transmet l'appréciation de l'analyste et rafraîchit la liste.
+   *
+   * On recharge plutôt que de modifier l'alerte localement : le statut affiché
+   * est déduit de l'avis côté serveur, et le recalculer ici dupliquerait une
+   * règle qui pourrait diverger.
+   */
+  donnerAvis(avis: 'CONFIRME' | 'FAUX_POSITIF' | 'TRAITE'): void {
+    const alerte = this.selected;
+    if (!alerte || this.avisEnCours) {
+      return;
+    }
+
+    // Contredire la mesure du moteur sans dire pourquoi n'apporte rien : ni à
+    // l'escalade, ni à l'amélioration des règles de détection. Le serveur
+    // applique la même exigence.
+    if (avis === 'FAUX_POSITIF' && !this.commentaire.trim()) {
+      this.avisErreur = 'Expliquez pourquoi ce fichier est sain avant de le déclarer faux positif.';
+      return;
+    }
+
+    this.avisEnCours = true;
+    this.avisErreur = null;
+
+    this.data.enregistrerAvis(
+      alerte.scanId, avis, this.commentaire.trim(), this.criticiteRetenue,
+    ).subscribe({
+      next: () => {
+        this.avisEnCours = false;
+        const idCourant = this.selectedId;
+        this.data.getAlerts().subscribe({
+          next: (v) => {
+            this.alerts = v;
+            if (idCourant && v.some((a) => a.id === idCourant)) {
+              this.selectedId = idCourant;
+            }
+            this.cdr.detectChanges();
+          },
+          error: () => this.cdr.detectChanges(),
+        });
+      },
+      error: (e: HttpErrorResponse) => {
+        this.avisEnCours = false;
+        this.avisErreur = e.error?.erreur ?? "L'avis n'a pas pu être enregistré.";
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   largeur(c: Contribution): number {

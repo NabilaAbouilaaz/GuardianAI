@@ -1,0 +1,153 @@
+<div class="flex flex-col gap-6 max-w-[900px]">
+  <div class="flex justify-between items-start">
+    <div>
+      <h2 class="font-mono text-lg font-semibold text-[#E2EBF5] m-0 mb-1">Comptes</h2>
+      <p class="font-sans text-[13px] text-[#5A7A9A] m-0">
+        Création et administration des accès à la plateforme
+      </p>
+    </div>
+    <button
+      (click)="formulaireOuvert = !formulaireOuvert"
+      class="font-mono text-[10px] tracking-[0.08em] text-[#00FF88] bg-[#00FF88]/[0.08] border border-[#00FF88]/30 px-4 py-2 rounded-sm cursor-pointer"
+    >
+      {{ formulaireOuvert ? 'ANNULER' : 'NOUVEAU COMPTE' }}
+    </button>
+  </div>
+
+  <div
+    *ngIf="erreur"
+    class="bg-[#FF4444]/[0.08] border border-[#FF4444]/30 rounded px-5 py-3.5 font-sans text-[12px] text-[#FF4444]"
+  >
+    {{ erreur }}
+  </div>
+
+  <!--
+    Mot de passe initial. Il n'existe nulle part ailleurs et ne pourra pas être
+    réaffiché : le panneau reste ouvert jusqu'à fermeture explicite.
+  -->
+  <div
+    *ngIf="compteCree as c"
+    class="bg-[#00FF88]/[0.06] border border-[#00FF88]/30 rounded px-5 py-4"
+  >
+    <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#00FF88] mb-2">
+      Mot de passe initial de « {{ c.username }} »
+    </div>
+    <div class="font-mono text-[17px] text-[#E2EBF5] bg-[#070B12] border border-white/[0.1] rounded px-4 py-3 mb-3 select-all">
+      {{ c.motDePasseInitial }}
+    </div>
+    <p class="font-sans text-[12px] text-[#8BA4C0] leading-relaxed m-0 mb-3">
+      Notez-le maintenant et transmettez-le à son destinataire. Il n'est stocké nulle part
+      en clair et ne pourra pas être réaffiché — seule une réinitialisation en produirait
+      un nouveau. Son renouvellement sera imposé à la première connexion.
+    </p>
+    <button
+      (click)="compteCree = null"
+      class="font-mono text-[10px] tracking-[0.08em] text-[#5A7A9A] bg-transparent border border-white/[0.1] px-3.5 py-1.5 rounded-sm cursor-pointer"
+    >
+      J'AI NOTÉ
+    </button>
+  </div>
+
+  <!-- Création -->
+  <div *ngIf="formulaireOuvert" class="bg-[#0C1220] border border-white/[0.07] rounded p-5">
+    <div class="font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A] mb-4">
+      Nouveau compte
+    </div>
+    <div class="grid grid-cols-3 gap-4 mb-4">
+      <div class="flex flex-col gap-1.5">
+        <label class="font-mono text-[10px] tracking-[0.08em] uppercase text-[#5A7A9A]">Identifiant</label>
+        <input
+          name="username" [(ngModel)]="nouvelUsername" [disabled]="enCours"
+          placeholder="prenom.nom"
+          class="bg-[#070B12] border border-white/[0.1] rounded px-3 py-2 font-mono text-[13px] text-[#E2EBF5] outline-none focus:border-[#00FF88]/50"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="font-mono text-[10px] tracking-[0.08em] uppercase text-[#5A7A9A]">Nom affiché</label>
+        <input
+          name="nom" [(ngModel)]="nouveauNom" [disabled]="enCours"
+          placeholder="Prénom Nom"
+          class="bg-[#070B12] border border-white/[0.1] rounded px-3 py-2 font-sans text-[13px] text-[#E2EBF5] outline-none focus:border-[#00FF88]/50"
+        />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="font-mono text-[10px] tracking-[0.08em] uppercase text-[#5A7A9A]">Rôle</label>
+        <select
+          name="role" [(ngModel)]="nouveauRole" [disabled]="enCours"
+          class="bg-[#070B12] border border-white/[0.1] rounded px-3 py-2 font-sans text-[13px] text-[#E2EBF5] outline-none focus:border-[#00FF88]/50"
+        >
+          <option value="ANALYSTE">Analyste</option>
+          <option value="ADMINISTRATEUR">Administrateur</option>
+        </select>
+      </div>
+    </div>
+    <p class="font-sans text-[11px] text-[#5A7A9A] mb-4 m-0">
+      L'identifiant n'accepte que lettres, chiffres, point, tiret et tiret bas.
+      Le mot de passe est généré automatiquement.
+    </p>
+    <button
+      (click)="creer()"
+      [disabled]="enCours || !nouvelUsername.trim()"
+      class="font-mono text-[11px] tracking-[0.1em] text-[#00FF88] bg-[#00FF88]/10 border border-[#00FF88]/[0.35] px-6 py-2.5 rounded-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {{ enCours ? 'CRÉATION…' : 'CRÉER LE COMPTE' }}
+    </button>
+  </div>
+
+  <!-- Liste -->
+  <div class="bg-[#0C1220] border border-white/[0.07] rounded overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-white/[0.07] font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A]">
+      {{ utilisateurs.length }} compte{{ utilisateurs.length !== 1 ? 's' : '' }}
+    </div>
+
+    <div
+      *ngFor="let u of utilisateurs"
+      class="px-5 py-4 flex items-center justify-between border-b border-white/[0.04]"
+    >
+      <div>
+        <div class="flex items-center gap-2.5 mb-1">
+          <span class="font-sans text-[13px] text-[#E2EBF5]">{{ u.nom }}</span>
+          <span
+            class="font-mono text-[9px] tracking-[0.08em] uppercase px-2 py-0.5 rounded-sm border"
+            [style.color]="u.role === 'ADMINISTRATEUR' ? '#00D4FF' : '#5A7A9A'"
+            [style.borderColor]="(u.role === 'ADMINISTRATEUR' ? '#00D4FF' : '#5A7A9A') + '4D'"
+          >
+            {{ u.role === 'ADMINISTRATEUR' ? 'Administrateur' : 'Analyste' }}
+          </span>
+          <span *ngIf="!u.actif" class="font-mono text-[9px] tracking-[0.08em] uppercase text-[#FF4444]">
+            Désactivé
+          </span>
+          <span *ngIf="u.doitChangerMotDePasse" class="font-mono text-[9px] tracking-[0.08em] uppercase text-[#FFB800]">
+            Mot de passe à renouveler
+          </span>
+        </div>
+        <div class="font-mono text-[10px] text-[#5A7A9A]">
+          {{ u.username }}
+          &middot;
+          {{ u.derniereConnexion ? 'dernière connexion ' + u.derniereConnexion : 'jamais connecté' }}
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button
+          (click)="reinitialiser(u)"
+          [disabled]="enCours"
+          title="Génère un nouveau mot de passe et lève tout blocage"
+          class="font-mono text-[10px] tracking-[0.08em] text-[#FFB800] bg-[#FFB800]/[0.08] border border-[#FFB800]/30 px-3 py-1.5 rounded-sm cursor-pointer disabled:opacity-40"
+        >
+          RÉINITIALISER
+        </button>
+        <button
+          (click)="basculerActivation(u)"
+          [disabled]="enCours || (estMoi(u) && u.actif)"
+          [title]="estMoi(u) && u.actif ? 'Vous ne pouvez pas désactiver votre propre compte' : ''"
+          class="font-mono text-[10px] tracking-[0.08em] px-3 py-1.5 rounded-sm cursor-pointer border disabled:opacity-30 disabled:cursor-not-allowed"
+          [style.color]="u.actif ? '#FF4444' : '#00FF88'"
+          [style.borderColor]="(u.actif ? '#FF4444' : '#00FF88') + '4D'"
+        >
+          {{ u.actif ? 'DÉSACTIVER' : 'RÉACTIVER' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

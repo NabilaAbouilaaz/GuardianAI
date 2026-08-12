@@ -137,6 +137,40 @@ caractéristiques du même fichier, ce qui doublerait le coût dominant.
 Le cache LRU ne sert une entrée que si elle contient déjà ce qui est demandé : une analyse
 mise en cache sans explication ne peut pas en fournir une, le vecteur n'étant pas conservé.
 
+## Consommation mémoire de l'extraction
+
+`thrember` construit son histogramme d'octets avec `np.bincount`, qui promeut chaque
+octet du fichier en entier 64 bits : **8 octets de mémoire par octet de fichier**, plus
+les tampons intermédiaires.
+
+Mesures réalisées avec `inspect_memoire.py` sur douze binaires Windows :
+
+| Fichier | Taille | Pic mémoire | Ratio |
+|---|---|---|---|
+| AutoCatHost.exe | 1,6 Mo | 14,1 Mo | 9,0× |
+| sppsvc.exe | 4,8 Mo | 62,0 Mo | 12,9× |
+| ntoskrnl.exe | 13,0 Mo | 249,3 Mo | 19,1× |
+| **igd10iumd64.dll** | **16,5 Mo** | **693,4 Mo** | **42,2×** |
+| excelcnv.exe | 53,8 Mo | 982,0 Mo | 18,3× |
+
+**Le ratio n'est pas constant** : il varie de 9× à 42× et dépend de la structure du
+binaire — nombre de sections, de chaînes, d'imports — autant que de sa taille.
+`igd10iumd64.dll` consomme davantage que des fichiers trois fois plus gros.
+
+### Conséquence sur la limite annoncée
+
+Le cahier des charges annonce 200 Mo par fichier (UC-01). Au pire ratio observé, cela
+demanderait **8,4 Go de mémoire libre d'un seul tenant**. Sur la machine de
+développement, avec 2 Go disponibles, la limite tenable est d'environ 48 Mo.
+
+La limite de 200 Mo reste donc **conditionnée à l'environnement d'exécution**, ce qui
+doit être documenté plutôt que masqué. Un fichier trop volumineux ne provoque plus une
+erreur générique mais un **507 Insufficient Storage** accompagné d'une estimation du
+besoin réel — l'utilisateur sait alors s'il doit libérer de la mémoire ou changer de
+machine.
+
+Aucun échec n'a été constaté jusqu'à 53,8 Mo dans les conditions du test.
+
 ## Le groupe `authenticode` sur les binaires Windows — question tranchée
 
 **Constat initial.** Sur trois binaires système Microsoft (`notepad.exe`, `calc.exe`,

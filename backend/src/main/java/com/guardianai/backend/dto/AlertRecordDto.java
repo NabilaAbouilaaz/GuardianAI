@@ -15,5 +15,9 @@ public record AlertRecordDto(
         String severity,
         String time,
         String analyst,
-        String status) {
+        String status,
+        /** Justification rédigée par l'analyste, nulle tant qu'aucun avis n'a été porté. */
+        String commentaire,
+        /** Vrai lorsque la criticité affichée a été fixée par l'analyste, pas déduite du verdict. */
+        boolean criticiteAjustee) {
 }

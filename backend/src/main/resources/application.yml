@@ -33,6 +33,25 @@ spring:
       max-request-size: 210MB
 
 guardianai:
+  # Posture de l'installation. Hors « dev », l'application refuse de demarrer avec
+  # la cle de signature par defaut, qui figure dans le depot et permettrait donc a
+  # quiconque de forger un jeton d'administrateur.
+  environnement: ${GUARDIANAI_ENV:dev}
+
+  erreurs:
+    # Detaille les erreurs inattendues renvoyees au client. Utile en developpement,
+    # a passer a false en production : le nom des exceptions et leur message
+    # renseignent un attaquant sur les composants utilises et leurs versions.
+    # La trace complete part dans les journaux dans les deux cas, et la reponse
+    # porte un identifiant permettant de l'y retrouver.
+    detaillees: ${ERREURS_DETAILLEES:true}
+
+  swagger:
+    # Documentation d'API accessible sans authentification. Utile en developpement,
+    # a passer a false en production : elle decrit l'integralite de la surface
+    # exposee, ce qui fait gagner un temps considerable a qui cherche une faille.
+    public: ${SWAGGER_PUBLIC:true}
+
   jwt:
     # Cle de signature des jetons. Au moins 32 caracteres : HMAC-SHA256 exige
     # 256 bits, et l'application refuse de demarrer en deca.

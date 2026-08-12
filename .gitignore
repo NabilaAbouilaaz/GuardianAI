@@ -1,1 +1,15 @@
 *.log
+
+# Artefacts de l'outil de migration Java de VS Code. Il se declenche tout seul,
+# cree une branche et depose ses journaux ici. Le projet cible Java 17 et n'a pas
+# vocation a migrer : ces fichiers n'ont rien a faire dans le depot.
+.github/modernize/
+
+# Environnements locaux
+ia-engine/venv/
+frontend/node_modules/
+backend/target/
+
+# Crash reports de la JVM
+hs_err_pid*.log
+replay_pid*.log

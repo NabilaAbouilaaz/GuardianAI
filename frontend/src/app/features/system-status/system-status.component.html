@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-6">
   <div>
-    <h2 class="font-mono text-lg font-semibold text-[#E2EBF5] m-0 mb-1">System Status</h2>
-    <p class="font-sans text-[13px] text-[#5A7A9A] m-0">Health and latency of GuardianAI backend services</p>
+    <h2 class="font-mono text-lg font-semibold text-[#E2EBF5] m-0 mb-1">État des services</h2>
+    <p class="font-sans text-[13px] text-[#5A7A9A] m-0">Disponibilité et temps de réponse des composants de la plateforme</p>
   </div>
 
   <div
@@ -22,20 +22,21 @@
       </div>
       <div class="flex items-center gap-8">
         <div class="text-right">
-          <div class="font-mono text-[10px] text-[#5A7A9A]">Latency</div>
+          <div class="font-mono text-[10px] text-[#5A7A9A]">Temps de réponse</div>
           <div class="font-mono text-xs text-[#E2EBF5]">{{ s.latency }}</div>
         </div>
-        <div class="text-right">
-          <div class="font-mono text-[10px] text-[#5A7A9A]">Uptime (30d)</div>
-          <div class="font-mono text-xs text-[#E2EBF5]">{{ s.uptime }}</div>
-        </div>
+        <!--
+          La disponibilité sur 30 jours n'est pas mesurée : elle exigerait un
+          historique des relevés, qui n'existe pas. Afficher un libellé toujours
+          vide vaut moins que de ne rien afficher.
+        -->
         <span
           class="font-mono text-[10px] tracking-[0.08em] uppercase px-2.5 py-1 rounded-sm border"
           [style.color]="statusColor(s.status)"
           [style.borderColor]="statusColor(s.status) + '4D'"
           [style.background]="statusColor(s.status) + '14'"
         >
-          {{ s.status }}
+          {{ statusLibelle(s.status) }}
         </span>
       </div>
     </div>

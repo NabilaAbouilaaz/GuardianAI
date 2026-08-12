@@ -2,6 +2,19 @@ import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { STATUS_COLOR, ScanStatus } from '../../../core/models/guardian.models';
 
+/**
+ * Libellés affichés pour chaque verdict.
+ *
+ * Les constantes restent en anglais dans le contrat d'API et en base ; seule
+ * leur présentation est traduite.
+ */
+const LIBELLE: Record<ScanStatus, string> = {
+  CLEAN: 'Bénin',
+  SUSPICIOUS: 'Suspect',
+  MALICIOUS: 'Malveillant',
+  PROCESSING: 'En cours',
+};
+
 @Component({
   selector: 'gd-status-badge',
   standalone: true,
@@ -14,7 +27,7 @@ import { STATUS_COLOR, ScanStatus } from '../../../core/models/guardian.models';
       [style.background]="color + '14'"
     >
       <span class="w-1.5 h-1.5 rounded-full" [style.background]="color"></span>
-      {{ status }}
+      {{ libelle }}
     </span>
   `,
 })
@@ -23,5 +36,9 @@ export class StatusBadgeComponent {
 
   get color(): string {
     return STATUS_COLOR[this.status];
+  }
+
+  get libelle(): string {
+    return LIBELLE[this.status] ?? this.status;
   }
 }

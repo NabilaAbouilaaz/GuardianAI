@@ -44,4 +44,9 @@ export class SystemStatusComponent implements OnInit {
   statusColor(s: ServiceStatus['status']): string {
     return { OPERATIONAL: '#00FF88', DEGRADED: '#FFB800', DOWN: '#FF4444' }[s];
   }
+
+  /** Libellé français. La constante reste en anglais dans le contrat d'API. */
+  statusLibelle(s: ServiceStatus['status']): string {
+    return { OPERATIONAL: 'Opérationnel', DEGRADED: 'Dégradé', DOWN: 'Hors service' }[s] ?? s;
+  }
 }

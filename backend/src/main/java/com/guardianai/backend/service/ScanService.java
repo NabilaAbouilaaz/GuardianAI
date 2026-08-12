@@ -114,6 +114,50 @@ public class ScanService {
         return toDto(saved, nomsDesAnalystes());
     }
 
+    /** Avis recevables de la part d'un analyste. */
+    private static final List<String> AVIS_VALIDES =
+            List.of("CONFIRME", "FAUX_POSITIF", "TRAITE");
+
+    /** Criticites que l'analyste peut retenir, quel que soit le verdict du moteur. */
+    private static final List<String> CRITICITES_VALIDES =
+            List.of("CRITICAL", "HIGH", "MEDIUM");
+
+    /**
+     * Enregistre l'appreciation d'un analyste sur un verdict.
+     *
+     * L'avis se superpose au verdict du moteur sans le remplacer : la mesure
+     * reste la mesure, l'appreciation humaine s'y ajoute. C'est ce qui permettra
+     * de comparer le taux de faux positifs mesure en laboratoire a celui constate
+     * en exploitation.
+     */
+    @Transactional
+    public void enregistrerAvis(UUID scanId, String avis, String commentaire,
+                                String criticite, UUID auteur) {
+        if (!AVIS_VALIDES.contains(avis)) {
+            throw new IllegalArgumentException(
+                    "Avis inconnu : " + avis + ". Attendu : " + AVIS_VALIDES);
+        }
+        if (criticite != null && !CRITICITES_VALIDES.contains(criticite)) {
+            throw new IllegalArgumentException(
+                    "Criticite inconnue : " + criticite + ". Attendu : " + CRITICITES_VALIDES);
+        }
+
+        // Declarer un faux positif sans dire pourquoi n'apporte rien : ni a
+        // l'escalade, ni a l'amelioration des regles de detection. C'est le seul
+        // avis pour lequel la justification est exigee, parce que c'est celui qui
+        // contredit la mesure.
+        if ("FAUX_POSITIF".equals(avis) && (commentaire == null || commentaire.isBlank())) {
+            throw new IllegalArgumentException(
+                    "Une justification est requise pour declarer un faux positif.");
+        }
+
+        ScanResult analyse = repository.findById(scanId).orElseThrow(
+                () -> new IllegalArgumentException("Analyse introuvable : " + scanId));
+
+        analyse.recueillirAvis(avis, commentaire, criticite, auteur);
+        repository.save(analyse);
+    }
+
     /** Justification archivee d'une analyse, dans l'ordre de poids decroissant. */
     @Transactional(readOnly = true)
     public List<ContributionDto> contributionsOf(UUID scanId) {
@@ -194,11 +238,13 @@ public class ScanService {
                         a.getId().toString(),
                         titreAlerte(a),
                         a.getFilename(),
-                        "MALICIOUS".equals(a.getClassification()) ? "CRITICAL" : "MEDIUM",
+                        criticite(a),
                         HEURE.format(a.getAnalyzedAt()),
                         a.getAnalystId() == null ? "—"
                                 : noms.getOrDefault(a.getAnalystId(), "Compte supprime"),
-                        "OPEN"))
+                        statutAlerte(a),
+                        a.getAnalystComment(),
+                        a.getAnalystSeverity() != null))
                 .toList();
     }
 
@@ -259,13 +305,16 @@ public class ScanService {
      * la confiance pertinente est la probabilite complementaire : un score de
      * malveillance de 0,04 % correspond a une confiance de 99,96 % dans le verdict.
      */
-    private static double confiance(ScanResult a) {
+    // Visibilite paquet plutot que privee : ces trois calculs portent des regles
+    // metier non triviales et doivent etre testables isolement, sans monter tout
+    // le service ni sa base de donnees.
+    static double confiance(ScanResult a) {
         double score = a.getScore();
         double valeur = "CLEAN".equals(a.getClassification()) ? 100.0 - score : score;
         return Math.round(valeur * 100.0) / 100.0;
     }
 
-    private static String extensionOf(String filename) {
+    static String extensionOf(String filename) {
         if (filename == null) {
             return "autre";
         }
@@ -276,7 +325,7 @@ public class ScanService {
         return "." + filename.substring(point + 1).toLowerCase(Locale.ROOT);
     }
 
-    private static String tailleLisible(long octets) {
+    static String tailleLisible(long octets) {
         if (octets < 1024) {
             return octets + " B";
         }
@@ -284,6 +333,39 @@ public class ScanService {
             return Math.round(octets / 1024.0) + " KB";
         }
         return String.format(Locale.ROOT, "%.1f MB", octets / 1024.0 / 1024.0);
+    }
+
+    /**
+     * Etat d'une alerte, deduit de l'avis porte par un analyste.
+     *
+     * Tant que personne ne s'est prononce, l'alerte reste ouverte. Un verdict
+     * confirme signifie qu'elle est prise en charge ; un faux positif ou un
+     * traitement la cloturent.
+     */
+    /**
+     * Criticite affichee.
+     *
+     * Celle retenue par l'analyste prime sur celle deduite du verdict : le moteur
+     * ignore les actifs touches et l'exposition reelle. Un meme fichier n'a pas la
+     * meme gravite sur un poste isole et sur un serveur de production, et c'est
+     * precisement ce que l'analyste apporte.
+     */
+    static String criticite(ScanResult a) {
+        if (a.getAnalystSeverity() != null) {
+            return a.getAnalystSeverity();
+        }
+        return "MALICIOUS".equals(a.getClassification()) ? "CRITICAL" : "MEDIUM";
+    }
+
+    static String statutAlerte(ScanResult a) {
+        if (a.getAnalystFeedback() == null) {
+            return "OPEN";
+        }
+        return switch (a.getAnalystFeedback()) {
+            case "CONFIRME" -> "INVESTIGATING";
+            case "FAUX_POSITIF", "TRAITE" -> "RESOLVED";
+            default -> "OPEN";
+        };
     }
 
     private static String titreAlerte(ScanResult a) {

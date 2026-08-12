@@ -39,6 +39,11 @@ MAX_FILE_SIZE = 200 * 1024 * 1024  # 200 Mo (UC-01)
 SEUIL_SUSPECT = 0.5
 CACHE_MAX = 5000  # nombre d'empreintes conservees en memoire
 
+# Rapport le plus defavorable entre memoire consommee et taille du fichier,
+# mesure sur douze binaires Windows de 0,9 a 53,8 Mo avec inspect_memoire.py.
+# Sert uniquement a formuler un message d'erreur exploitable, pas a decider.
+RATIO_MEMOIRE_MAX = 42.0
+
 # Decoupage du vecteur de caracteristiques par groupe.
 #
 # Le vecteur produit par thrember (2568 dimensions) est la concatenation de
@@ -128,6 +133,30 @@ def _classer(score: float) -> str:
     if score >= SEUIL_SUSPECT:
         return "suspect"
     return "benin"
+
+
+def _message_memoire(taille_octets: int) -> str:
+    """Explique un echec memoire en termes actionnables.
+
+    L'extraction consomme de 9 a 42 fois la taille du fichier, mesure sur des
+    binaires Windows de 0,9 a 53,8 Mo (voir inspect_memoire.py). L'origine est
+    dans thrember : np.bincount promeut chaque octet en entier 64 bits pour
+    construire l'histogramme, soit 8 octets de memoire par octet de fichier,
+    auxquels s'ajoutent les tampons intermediaires.
+
+    Le ratio depend de la structure du binaire autant que de sa taille, d'ou une
+    estimation prudente fondee sur le pire cas observe.
+    """
+    taille_mo = taille_octets / 1e6
+    besoin_go = taille_mo * RATIO_MEMOIRE_MAX / 1000
+
+    return (
+        f"Memoire insuffisante pour analyser ce fichier de {taille_mo:.0f} Mo. "
+        f"L'extraction des caracteristiques peut demander jusqu'a "
+        f"{RATIO_MEMOIRE_MAX:.0f} fois la taille du fichier, soit environ "
+        f"{besoin_go:.1f} Go pour celui-ci. Liberer de la memoire, ou analyser "
+        f"ce fichier sur une machine mieux dotee."
+    )
 
 
 def _contributions(vecteur: np.ndarray) -> dict:
@@ -232,6 +261,12 @@ async def predict(file: UploadFile = File(...), expliquer: bool = False):
                              dtype=np.float32).reshape(1, -1)
         score = float(model.predict(vecteur)[0])
         explication = _contributions(vecteur) if expliquer else {}
+
+    # La memoire est traitee a part : ce n'est pas le fichier qui est en cause,
+    # et le message doit dire quoi faire plutot que de constater un echec.
+    except MemoryError as exc:
+        raise HTTPException(status_code=507, detail=_message_memoire(len(contents))) from exc
+
     except Exception as exc:  # fichier illisible, corrompu ou format non gere
         raise HTTPException(
             status_code=422,
@@ -283,6 +318,10 @@ async def explain(file: UploadFile = File(...)):
                              dtype=np.float32).reshape(1, -1)
         score = float(model.predict(vecteur)[0])
         explication = _contributions(vecteur)
+
+    except MemoryError as exc:
+        raise HTTPException(status_code=507, detail=_message_memoire(len(contents))) from exc
+
     except Exception as exc:
         raise HTTPException(
             status_code=422,

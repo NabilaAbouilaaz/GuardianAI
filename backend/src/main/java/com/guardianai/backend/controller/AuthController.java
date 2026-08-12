@@ -7,6 +7,7 @@ import com.guardianai.backend.dto.LoginResponse;
 import com.guardianai.backend.repository.AppUserRepository;
 import com.guardianai.backend.service.JwtService;
 import com.guardianai.backend.service.PolitiqueMotDePasse;
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -61,9 +62,31 @@ public class AuthController {
         this.politique = politique;
     }
 
+    /**
+     * Origine de la requete, telle qu'elle doit apparaitre dans les journaux.
+     *
+     * On lit d'abord X-Forwarded-For : derriere un proxy ou un repartiteur de
+     * charge, l'adresse directe est celle du proxy, identique pour tout le monde,
+     * donc inutile pour reperer une anomalie. L'en-tete est fourni par le client
+     * et donc falsifiable — il sert a diagnostiquer, jamais a autoriser.
+     */
+    private static String origine(HttpServletRequest requete) {
+        String transmise = requete.getHeader("X-Forwarded-For");
+        String ip = transmise != null && !transmise.isBlank()
+                ? transmise.split(",")[0].trim()
+                : requete.getRemoteAddr();
+
+        String agent = requete.getHeader("User-Agent");
+        if (agent != null && agent.length() > 120) {
+            agent = agent.substring(0, 120) + "…";
+        }
+        return ip + " | " + (agent == null ? "agent inconnu" : agent);
+    }
+
     @PostMapping("/login")
     @Transactional
-    public ResponseEntity<?> connexion(@RequestBody LoginRequest demande) {
+    public ResponseEntity<?> connexion(@RequestBody LoginRequest demande,
+                                       HttpServletRequest requete) {
         Optional<AppUser> trouve = utilisateurs.findByUsernameIgnoreCase(demande.username());
 
         // Compte bloque : on repond avant meme de verifier le mot de passe, et on
@@ -72,7 +95,8 @@ public class AuthController {
         if (trouve.isPresent() && trouve.get().estVerrouille()) {
             long minutes = Math.max(1, ChronoUnit.MINUTES.between(
                     java.time.Instant.now(), trouve.get().getLockedUntil()) + 1);
-            log.warn("Tentative sur le compte verrouille '{}'", demande.username());
+            log.warn("Tentative sur le compte verrouille '{}' depuis {}",
+                    demande.username(), origine(requete));
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
                     "erreur", "Compte temporairement bloque apres plusieurs echecs. "
                             + "Reessayez dans " + minutes + " minute(s)."));
@@ -86,7 +110,8 @@ public class AuthController {
                 u.enregistrerEchec(SEUIL_ECHECS, DUREE_BLOCAGE);
                 utilisateurs.save(u);
             });
-            log.warn("Echec de connexion pour '{}'", demande.username());
+            log.warn("Echec de connexion pour '{}' depuis {}",
+                    demande.username(), origine(requete));
             // Message identique quel que soit le motif : distinguer "compte
             // inconnu" de "mot de passe errone" reviendrait a confirmer
             // l'existence d'un compte.
@@ -97,7 +122,8 @@ public class AuthController {
         AppUser utilisateur = trouve.get();
         utilisateur.enregistrerConnexion();
         utilisateurs.save(utilisateur);
-        log.info("Connexion de '{}' ({})", utilisateur.getUsername(), utilisateur.getRole());
+        log.info("Connexion de '{}' ({}) depuis {}",
+                utilisateur.getUsername(), utilisateur.getRole(), origine(requete));
 
         return ResponseEntity.ok(new LoginResponse(
                 jwtService.emettre(utilisateur),

@@ -8,6 +8,19 @@ const COLOR: Record<AlertStatus, string> = {
   RESOLVED: '#00FF88',
 };
 
+/**
+ * Libellés affichés.
+ *
+ * Les valeurs restent en anglais dans le contrat d'API et en base : les traduire
+ * là obligerait à modifier les données à chaque évolution de la langue de
+ * l'interface. La traduction se fait au seul endroit qui la concerne, l'affichage.
+ */
+const LIBELLE: Record<AlertStatus, string> = {
+  OPEN: 'Ouverte',
+  INVESTIGATING: 'En cours',
+  RESOLVED: 'Clôturée',
+};
+
 @Component({
   selector: 'gd-alert-status-badge',
   standalone: true,
@@ -19,7 +32,7 @@ const COLOR: Record<AlertStatus, string> = {
       [style.borderColor]="color + '4D'"
       [style.background]="color + '14'"
     >
-      {{ status }}
+      {{ libelle }}
     </span>
   `,
 })
@@ -28,5 +41,9 @@ export class AlertStatusBadgeComponent {
 
   get color(): string {
     return COLOR[this.status];
+  }
+
+  get libelle(): string {
+    return LIBELLE[this.status] ?? this.status;
   }
 }

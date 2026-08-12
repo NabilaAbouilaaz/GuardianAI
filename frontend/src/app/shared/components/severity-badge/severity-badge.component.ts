@@ -2,6 +2,13 @@ import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { AlertSeverity, SEVERITY_COLOR } from '../../../core/models/guardian.models';
 
+/** Libellés affichés. Les constantes restent en anglais côté API et base. */
+const LIBELLE: Record<AlertSeverity, string> = {
+  CRITICAL: 'Critique',
+  HIGH: 'Élevée',
+  MEDIUM: 'Moyenne',
+};
+
 @Component({
   selector: 'gd-severity-badge',
   standalone: true,
@@ -13,7 +20,7 @@ import { AlertSeverity, SEVERITY_COLOR } from '../../../core/models/guardian.mod
       [style.borderColor]="color + '4D'"
       [style.background]="color + '14'"
     >
-      {{ severity }}
+      {{ libelle }}
     </span>
   `,
 })
@@ -22,5 +29,9 @@ export class SeverityBadgeComponent {
 
   get color(): string {
     return SEVERITY_COLOR[this.severity];
+  }
+
+  get libelle(): string {
+    return LIBELLE[this.severity] ?? this.severity;
   }
 }

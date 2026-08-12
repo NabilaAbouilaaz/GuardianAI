@@ -1,6 +1,6 @@
 <div class="flex flex-col gap-6 max-w-[820px]">
   <div>
-    <h2 class="font-mono text-lg font-semibold text-[#E2EBF5] m-0 mb-1.5">File Analysis</h2>
+    <h2 class="font-mono text-lg font-semibold text-[#E2EBF5] m-0 mb-1.5">Analyse de fichiers</h2>
     <p class="font-sans text-[13px] text-[#5A7A9A] m-0">
       Analyse statique par apprentissage automatique. Le fichier n'est jamais exécuté.
       Taille maximale&nbsp;: 200&nbsp;MB
@@ -22,15 +22,15 @@
       <gd-icon name="upload"></gd-icon>
     </div>
     <div class="font-mono text-sm text-[#E2EBF5] mb-2">
-      {{ dragging ? 'Drop files to analyze' : 'Drag & drop files here' }}
+      {{ dragging ? 'Déposez les fichiers à analyser' : 'Glissez vos fichiers ici' }}
     </div>
-    <div class="font-mono text-[11px] text-[#5A7A9A]">or click to browse &middot; max 200 MB per file</div>
+    <div class="font-mono text-[11px] text-[#5A7A9A]">ou cliquez pour parcourir</div>
   </div>
 
   <!-- File queue -->
   <div *ngIf="queue.length" class="bg-[#0C1220] border border-white/[0.07] rounded overflow-hidden">
     <div class="px-5 py-3.5 border-b border-white/[0.07] font-mono text-[11px] tracking-[0.1em] uppercase text-[#5A7A9A]">
-      Queue &mdash; {{ queue.length }} file{{ queue.length !== 1 ? 's' : '' }}
+      File d'attente &mdash; {{ queue.length }} fichier{{ queue.length !== 1 ? 's' : '' }}
     </div>
     <div *ngFor="let item of queue" class="border-b border-white/[0.04]">
     <div class="px-5 py-3.5 flex items-center justify-between">
@@ -67,7 +67,7 @@
           (click)="scanFile(item)"
           class="font-mono text-[10px] tracking-[0.08em] text-[#00FF88] bg-[#00FF88]/[0.08] border border-[#00FF88]/30 px-3.5 py-1.5 rounded-sm cursor-pointer"
         >
-          SCAN
+          ANALYSER
         </button>
       </div>
     </div>
@@ -138,14 +138,14 @@
         (click)="scanAll()"
         class="w-full font-mono text-[11px] tracking-[0.1em] text-[#00FF88] bg-[#00FF88]/10 border border-[#00FF88]/[0.35] px-6 py-2.5 rounded-sm cursor-pointer"
       >
-        SCAN ALL FILES
+        TOUT ANALYSER
       </button>
     </div>
   </div>
 
   <!-- Pipeline explainability -->
   <div class="bg-[#0C1220] border border-white/[0.07] rounded p-6">
-    <div class="font-mono text-[11px] tracking-[0.12em] uppercase text-[#5A7A9A] mb-4">Analysis Pipeline</div>
+    <div class="font-mono text-[11px] tracking-[0.12em] uppercase text-[#5A7A9A] mb-4">Étapes de l'analyse</div>
     <div class="grid grid-cols-4 gap-px">
       <div *ngFor="let p of pipeline" class="p-4 bg-[#0A1018]">
         <div class="font-mono text-2xl font-bold text-[#00FF88]/[0.15] mb-2">{{ p.step }}</div>

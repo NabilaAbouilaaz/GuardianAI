@@ -27,6 +27,10 @@ export interface AlertRecord {
   time: string;
   analyst: string;
   status: AlertStatus;
+  /** Justification rédigée par l'analyste. Nulle tant qu'aucun avis n'a été porté. */
+  commentaire: string | null;
+  /** Vrai lorsque la criticité a été fixée par l'analyste plutôt que déduite du verdict. */
+  criticiteAjustee: boolean;
 }
 
 export interface TrendPoint {

@@ -73,6 +73,33 @@ public class ScanResult {
     @Column(name = "analyst_id")
     private UUID analystId;
 
+    /**
+     * Avis porte par un analyste sur le verdict du moteur.
+     *
+     * Nul tant que personne ne s'est prononce. C'est la seule facon de mesurer
+     * le taux de faux positifs reel en exploitation, distinct de celui mesure
+     * sur le jeu de test.
+     */
+    @Column(name = "analyst_feedback", length = 16)
+    private String analystFeedback;
+
+    @Column(name = "feedback_by")
+    private UUID feedbackBy;
+
+    @Column(name = "feedback_at")
+    private Instant feedbackAt;
+
+    /** Justification de l'avis, rédigée par l'analyste. */
+    @Column(name = "analyst_comment", columnDefinition = "text")
+    private String analystComment;
+
+    /**
+     * Criticite retenue par l'analyste, lorsqu'elle differe de celle deduite du
+     * verdict. Le moteur ignore les actifs touches et l'exposition reelle.
+     */
+    @Column(name = "analyst_severity", length = 16)
+    private String analystSeverity;
+
     protected ScanResult() {
         // requis par JPA
     }
@@ -162,5 +189,40 @@ public class ScanResult {
 
     public void attribuerA(UUID analystId) {
         this.analystId = analystId;
+    }
+
+    public String getAnalystFeedback() {
+        return analystFeedback;
+    }
+
+    public UUID getFeedbackBy() {
+        return feedbackBy;
+    }
+
+    public Instant getFeedbackAt() {
+        return feedbackAt;
+    }
+
+    /**
+     * Enregistre l'avis d'un analyste.
+     *
+     * L'avis est modifiable : un analyste peut revenir sur son jugement apres
+     * verification. Le verdict du moteur, lui, reste intact — on superpose une
+     * appreciation humaine, on ne reecrit pas la mesure.
+     */
+    public void recueillirAvis(String avis, String commentaire, String criticite, UUID auteur) {
+        this.analystFeedback = avis;
+        this.analystComment = commentaire == null || commentaire.isBlank() ? null : commentaire.trim();
+        this.analystSeverity = criticite;
+        this.feedbackBy = auteur;
+        this.feedbackAt = Instant.now();
+    }
+
+    public String getAnalystComment() {
+        return analystComment;
+    }
+
+    public String getAnalystSeverity() {
+        return analystSeverity;
     }
 }
