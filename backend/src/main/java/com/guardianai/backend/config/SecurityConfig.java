@@ -54,6 +54,45 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
+                // --- En-tetes de securite
+                //
+                // Portee reelle a bien comprendre : ces en-tetes accompagnent les
+                // reponses du backend, c'est-a-dire du JSON. Tant que l'interface
+                // Angular est servie par son propre serveur sur le port 4200, la
+                // politique de contenu qui protege les pages vient de la, pas d'ici.
+                //
+                // Ils prennent tout leur sens le jour ou le backend sert le frontend
+                // compile — cas du deploiement cible. Les poser maintenant evite de
+                // l'oublier a ce moment-la, et protege des a present les reponses de
+                // l'API contre l'encadrement et l'interpretation abusive de leur type.
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(
+                                // Aucune ressource externe n'est chargee : ni police,
+                                // ni script, ni feuille de style venant d'ailleurs.
+                                "default-src 'self'; "
+                                        + "script-src 'self'; "
+                                        // Angular applique des styles par attribut
+                                        // pour les liaisons [style.x] : les interdire
+                                        // casserait l'affichage des badges et des barres.
+                                        + "style-src 'self' 'unsafe-inline'; "
+                                        + "img-src 'self' data:; "
+                                        + "connect-src 'self'; "
+                                        // Aucun plugin, aucune balise <object>.
+                                        + "object-src 'none'; "
+                                        // Empeche l'injection d'une balise <base> qui
+                                        // detournerait toutes les URL relatives.
+                                        + "base-uri 'self'; "
+                                        // Interdit l'encadrement : protege du
+                                        // detournement de clic.
+                                        + "frame-ancestors 'none'; "
+                                        + "form-action 'self'"))
+                        // Ne transmet l'URL complete qu'aux pages du meme site.
+                        .referrerPolicy(referrer -> referrer.policyDirective(
+                                "strict-origin-when-cross-origin"))
+                        // Aucun usage de la camera, du micro ou de la position.
+                        .permissionsPolicyHeader(permissions -> permissions.policy(
+                                "camera=(), microphone=(), geolocation=(), payment=()")))
+
                 // Sans session ni cookie d'authentification, il n'y a pas de requete
                 // implicitement authentifiee par le navigateur : le vecteur CSRF
                 // n'existe pas. L'identite doit etre presentee explicitement a chaque
