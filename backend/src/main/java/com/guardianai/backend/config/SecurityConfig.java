@@ -13,6 +13,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -87,8 +88,13 @@ public class SecurityConfig {
                                         + "frame-ancestors 'none'; "
                                         + "form-action 'self'"))
                         // Ne transmet l'URL complete qu'aux pages du meme site.
-                        .referrerPolicy(referrer -> referrer.policyDirective(
-                                "strict-origin-when-cross-origin"))
+                        //
+                        // Une enumeration et non une chaine libre : les valeurs
+                        // possibles sont fixees par la specification, et une faute de
+                        // frappe produirait un en-tete que les navigateurs ignoreraient
+                        // en silence.
+                        .referrerPolicy(referrer -> referrer.policy(
+                                ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                         // Aucun usage de la camera, du micro ou de la position.
                         .permissionsPolicyHeader(permissions -> permissions.policy(
                                 "camera=(), microphone=(), geolocation=(), payment=()")))
