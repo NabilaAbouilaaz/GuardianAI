@@ -1,5 +1,7 @@
 # GuardianAI
 
+[![Vérification](https://github.com/NabilaAbouilaaz/GuardianAI/actions/workflows/verification.yml/badge.svg)](https://github.com/NabilaAbouilaaz/GuardianAI/actions/workflows/verification.yml)
+
 Plateforme de détection de malwares par intelligence artificielle, développée pour TEC Group.
 
 GuardianAI analyse un fichier et rend un verdict — bénin, suspect ou malveillant — accompagné d'un score de confiance, en moins d'une seconde. Contrairement aux antivirus classiques qui comparent les fichiers à une liste de signatures connues, le moteur apprend à reconnaître ce qui caractérise un fichier malveillant. Il peut donc détecter des menaces qu'il n'a jamais vues, y compris celles dont le code a été modifié pour échapper aux détections habituelles.
@@ -17,6 +19,24 @@ Le projet est découpé en trois composants indépendants qui communiquent en HT
 Le dossier `backend/` contient l'API REST Spring Boot : elle porte la logique métier, l'authentification et l'enregistrement des analyses. Le dossier `frontend/` contient l'interface Angular, utilisée pour déposer des fichiers et superviser l'activité de détection. Le dossier `ia-engine/` contient le moteur d'analyse, un microservice Python qui reçoit un fichier et retourne un verdict.
 
 Le backend joue le rôle de chef d'orchestre : il reçoit les fichiers envoyés depuis l'interface, les transmet au moteur d'analyse, puis conserve et diffuse les résultats. Cette séparation permet de faire évoluer le modèle de détection sans toucher au reste de la plateforme.
+
+## Sécurité
+
+L'accès à la plateforme est authentifié (exigence RF-07). Deux rôles sont distingués : **analyste**, qui analyse, consulte et qualifie les alertes ; **administrateur**, qui gère en outre les comptes.
+
+Les jetons sont signés en HMAC-SHA384 et valables huit heures, mais leur **révocation est immédiate** : désactiver un compte, changer un mot de passe ou se déconnecter rend caducs tous les jetons déjà émis, sans attendre leur expiration.
+
+Les mots de passe sont conservés sous forme d'empreintes BCrypt et doivent faire au moins douze caractères. Le mot de passe initial d'un compte est généré par le serveur, affiché une seule fois, et son renouvellement est imposé à la première connexion — il ne reste donc jamais valide.
+
+Cinq échecs de connexion consécutifs verrouillent un compte pendant quinze minutes. Une limite de débit s'applique par ailleurs à la connexion et à l'analyse de fichiers, cette dernière mobilisant jusqu'à quarante fois la taille du fichier en mémoire.
+
+Un seul point d'entrée reste accessible sans compte : `/api/v1/health`, qui ne révèle rien d'autre que la disponibilité du service.
+
+**Prérequis de déploiement.** Deux protections relèvent de l'infrastructure et ne sont pas assurées par le code. Le **chiffrement du transport** est indispensable : sans HTTPS, les identifiants circulent en clair. L'**isolation du composant d'analyse** l'est tout autant : le moteur interprète des fichiers hostiles avec des bibliothèques natives, dans le même processus que l'API. Un fichier conçu pour exploiter une faille de l'analyseur donnerait l'exécution de code sur le serveur qui détient la base et les clés. Une mise en production sérieuse suppose un processus isolé, sans privilèges, dans un environnement jetable.
+
+## Vérification automatique
+
+Chaque poussée déclenche l'exécution des **69 tests** du backend sur une base PostgreSQL vierge, la compilation du frontend et un contrôle de syntaxe du moteur. Les migrations sont donc rejouées depuis zéro à chaque fois, ce qu'un poste de développement ne vérifie jamais.
 
 ## Résultats du moteur de détection
 

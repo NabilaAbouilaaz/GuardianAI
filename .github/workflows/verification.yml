@@ -1,0 +1,116 @@
+# Verification automatique a chaque poussee.
+#
+# Les trois composants sont verifies separement : ils n'ont ni le meme langage,
+# ni les memes dependances, et un echec du frontend ne doit pas masquer un
+# backend qui passe.
+#
+# Ce qui n'est PAS verifie ici, et pourquoi : le moteur d'analyse n'est pas
+# demarre. Charger le modele LightGBM et le jeu de caracteristiques EMBER2024
+# demanderait plusieurs centaines de megaoctets a chaque execution, pour verifier
+# un composant qui ne change pas. Les tests du backend s'accommodent de son
+# absence : l'etat des services le signale simplement hors service.
+
+name: Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  backend:
+    name: Backend — 69 tests
+    runs-on: ubuntu-latest
+
+    # Base jetable, recreee a chaque execution. Flyway y applique les sept
+    # migrations depuis zero : c'est aussi une verification qu'elles s'enchainent
+    # correctement sur une installation neuve, ce qu'un poste de developpement
+    # ne teste jamais.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: guardianai
+          POSTGRES_USER: guardianai_user
+          POSTGRES_PASSWORD: motdepasse_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Java 17, la version ciblee par le pom — et non celle du poste de
+      # developpement. C'est tout l'interet : verifier le projet tel qu'il est
+      # declare, pas tel qu'il se compile par hasard sur une machine donnee.
+      - name: Installer Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Executer les tests
+        working-directory: backend
+        env:
+          DB_URL: jdbc:postgresql://localhost:5432/guardianai
+          DB_USER: guardianai_user
+          DB_PASSWORD: motdepasse_ci
+          # Cle propre a l'integration continue. La cle par defaut serait refusee
+          # si GUARDIANAI_ENV valait autre chose que « dev » ; on en fournit une
+          # vraie plutot que de dependre du repli.
+          JWT_SECRET: cle-de-verification-continue-suffisamment-longue-pour-hmac
+        run: ./mvnw --batch-mode clean test
+
+  frontend:
+    name: Frontend — compilation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22 LTS, et non la version impaire installee en local. Angular
+      # n'accepte que les versions LTS, et l'avertissement EBADENGINE observe en
+      # developpement disparait ici.
+      - name: Installer Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installer les dependances
+        working-directory: frontend
+        # `npm ci` et non `npm install` : reinstalle a l'identique depuis le
+        # verrou, sans recalculer les versions.
+        run: npm ci
+
+      - name: Compiler
+        working-directory: frontend
+        run: npx ng build
+
+  moteur:
+    name: Moteur — syntaxe Python
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Verification volontairement legere : on s'assure que les fichiers sont
+      # syntaxiquement valides, sans installer thrember ni telecharger le modele.
+      # Une verification complete demanderait plusieurs minutes et des centaines
+      # de megaoctets a chaque poussee, pour un composant qui evolue peu.
+      - name: Verifier la syntaxe
+        working-directory: ia-engine
+        run: python -m compileall -q main.py test_predict.py inspect_features.py inspect_memoire.py inspect_authenticode.py
