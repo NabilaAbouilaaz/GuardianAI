@@ -1,0 +1,21 @@
+-- Revocation immediate des jetons.
+--
+-- Jusqu'ici, un jeton emis restait valable jusqu'a son expiration, quoi qu'il
+-- arrive ensuite. Trois situations en decoulaient, toutes anormales :
+--
+--   1. Un compte desactive par l'administrateur conservait son acces complet
+--      pendant les huit heures restantes. Le bouton « Desactiver » ne coupait
+--      rien dans l'immediat.
+--   2. Un changement de mot de passe laissait l'ancienne session ouverte. Or on
+--      change son mot de passe precisement quand on le croit compromis.
+--   3. Une deconnexion n'effacait le jeton que du navigateur ; le serveur
+--      continuait de l'accepter.
+--
+-- Plutot que de tenir une liste des jetons revoques — table a purger, entretien
+-- permanent —, on retient par compte la date a partir de laquelle un jeton est
+-- recevable. Tout jeton emis avant devient caduc instantanement.
+--
+-- Consequence assumee : la revocation vaut pour toutes les sessions du compte,
+-- pas seulement celle en cours. Se deconnecter d'un poste deconnecte les autres.
+-- Pour un outil d'analyse de securite, c'est le comportement souhaitable.
+ALTER TABLE app_user ADD COLUMN tokens_valid_after TIMESTAMP WITH TIME ZONE;

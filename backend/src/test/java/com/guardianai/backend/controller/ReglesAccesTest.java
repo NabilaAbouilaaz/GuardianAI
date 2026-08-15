@@ -199,4 +199,48 @@ class ReglesAccesTest {
                     .andExpect(status().isUnauthorized());
         }
     }
+
+    @Nested
+    @DisplayName("Revocation immediate")
+    class Revocation {
+
+        /**
+         * Une signature valide ne suffit pas. Sans cette verification, un compte
+         * desactive garderait son acces complet jusqu'a l'expiration de son
+         * jeton — le bouton « Desactiver » ne couperait rien dans l'immediat.
+         *
+         * <p>Le test cree son propre compte plutot que d'emprunter « analyste » :
+         * revoquer les jetons d'un compte partage rendrait les autres tests
+         * dependants de leur ordre d'execution, et donc instables.
+         */
+        @Test
+        @DisplayName("Un compte desactive perd l'acces sans attendre l'expiration")
+        void unCompteDesactivePerdSonAcces() throws Exception {
+            AppUser jetable = new AppUser(
+                    "temoin.revocation." + System.nanoTime(),
+                    "Temoin de revocation",
+                    "$2a$10$empreinte.sans.usage.ce.compte.ne.se.connecte.jamais",
+                    AppUser.ROLE_ANALYSTE);
+            utilisateurs.save(jetable);
+
+            try {
+                String jeton = "Bearer " + jwtService.emettre(jetable);
+
+                // Le jeton fonctionne tant que le compte est actif.
+                mockMvc.perform(get("/api/v1/scans/recent")
+                                .header(HttpHeaders.AUTHORIZATION, jeton))
+                        .andExpect(status().isOk());
+
+                jetable.changerActivation(false);
+                utilisateurs.save(jetable);
+
+                // Le meme jeton, inchange et toujours valablement signe, est refuse.
+                mockMvc.perform(get("/api/v1/scans/recent")
+                                .header(HttpHeaders.AUTHORIZATION, jeton))
+                        .andExpect(status().isUnauthorized());
+            } finally {
+                utilisateurs.delete(jetable);
+            }
+        }
+    }
 }

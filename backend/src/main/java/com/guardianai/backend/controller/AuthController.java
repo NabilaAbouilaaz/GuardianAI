@@ -184,6 +184,31 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Mot de passe mis a jour."));
     }
 
+    /**
+     * Deconnexion : rend caducs tous les jetons du compte.
+     *
+     * Effacer le jeton du navigateur ne suffit pas — un jeton intercepte
+     * resterait utilisable jusqu'a son expiration. La revocation s'applique a
+     * toutes les sessions du compte : se deconnecter d'un poste deconnecte les
+     * autres. Pour un outil d'analyse de securite, c'est le comportement
+     * souhaitable.
+     */
+    @PostMapping("/logout")
+    @Transactional
+    public ResponseEntity<?> deconnexion(Authentication authentification) {
+        if (authentification == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        utilisateurs.findById(UUID.fromString(authentification.getName())).ifPresent(u -> {
+            u.revoquerLesJetons();
+            utilisateurs.save(u);
+            log.info("Deconnexion de '{}'", u.getUsername());
+        });
+
+        return ResponseEntity.ok(Map.of("message", "Session close."));
+    }
+
     /** Identite portee par le jeton courant. */
     @GetMapping("/moi")
     public ResponseEntity<?> moi(Authentication authentification) {

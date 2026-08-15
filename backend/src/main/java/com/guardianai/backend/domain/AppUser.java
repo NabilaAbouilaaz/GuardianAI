@@ -58,6 +58,16 @@ public class AppUser {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
+    /**
+     * Date a partir de laquelle un jeton est recevable pour ce compte.
+     *
+     * Tout jeton emis avant devient caduc immediatement. C'est ce qui permet a
+     * une desactivation, un changement de mot de passe ou une deconnexion de
+     * prendre effet sans attendre l'expiration naturelle du jeton.
+     */
+    @Column(name = "tokens_valid_after")
+    private Instant tokensValidAfter;
+
     protected AppUser() {
         // requis par JPA
     }
@@ -146,9 +156,28 @@ public class AppUser {
         this.lastLoginAt = Instant.now();
     }
 
+    public Instant getTokensValidAfter() {
+        return tokensValidAfter;
+    }
+
+    /**
+     * Rend caducs tous les jetons deja emis pour ce compte.
+     *
+     * Appele a la deconnexion, au changement de mot de passe et a la
+     * desactivation. Le decalage d'une seconde couvre l'imprecision de la date
+     * d'emission d'un jeton, exprimee a la seconde : sans lui, un jeton emis dans
+     * la meme seconde pourrait survivre a sa propre revocation.
+     */
+    public void revoquerLesJetons() {
+        this.tokensValidAfter = Instant.now().plusSeconds(1);
+    }
+
     public void changerMotDePasse(String nouvelleEmpreinte) {
         this.passwordHash = nouvelleEmpreinte;
         this.mustChangePassword = false;
+        // On change son mot de passe precisement quand on le croit compromis :
+        // laisser les sessions ouvertes viderait le geste de son sens.
+        revoquerLesJetons();
     }
 
     /** Impose le renouvellement : utilise a la creation et a la reinitialisation. */
@@ -164,6 +193,11 @@ public class AppUser {
      */
     public void changerActivation(boolean actif) {
         this.enabled = actif;
+        // Sans cela, un compte desactive conserverait son acces complet jusqu'a
+        // l'expiration de son jeton — le bouton ne couperait rien dans l'immediat.
+        if (!actif) {
+            revoquerLesJetons();
+        }
     }
 
     /** Leve un blocage en cours, sans attendre l'expiration du delai. */

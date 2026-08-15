@@ -107,6 +107,20 @@ export class AuthService {
    *              doit savoir laquelle des deux vient de se produire.
    */
   deconnexion(motif?: string): void {
+    // On prévient le serveur avant d'effacer le jeton : lui seul peut le rendre
+    // caduc. L'effacer localement ne ferait qu'oublier un jeton qui resterait
+    // valable jusqu'à son expiration.
+    //
+    // On n'attend pas la réponse pour fermer la session côté navigateur : si le
+    // serveur est injoignable, l'utilisateur doit pouvoir se déconnecter quand
+    // même. Le jeton expirera alors naturellement.
+    if (this.jeton) {
+      this.http.post(`${this.api}/logout`, {}).subscribe({
+        next: () => undefined,
+        error: () => undefined,
+      });
+    }
+
     localStorage.removeItem(AuthService.CLE_JETON);
     localStorage.removeItem(AuthService.CLE_UTILISATEUR);
     localStorage.removeItem(AuthService.CLE_CHANGEMENT);
